@@ -20,7 +20,7 @@
 --   Look: <who> = <who>          turn to a cat (or Middle, Camera)
 --   Pose: <who> = <pose>         Sit, Lie, Sleep, Eat, Sniff, Meow, Play, Dig, Groom, Win, Hit, Hiss, Growl, TailUp,
 --                                Stop - or a montage's path
---   Say: <who> = <line>          the line on screen with the cat's name
+--   Say: <who> = <line>          the line on screen with the cat's name ({PLAYER}, {P2} ... = names in the line)
 --   Card: <text>                 a line on screen without a name
 --   Camera: <shot> [= <who> ...] [~<seconds>]   see camera.lua
 --   Fade: <seconds> / FadeIn: <seconds>
@@ -487,9 +487,19 @@ function ACTIONS.Pose(run, b)
     log("%s: pose %s - %d cat(s)", run.name, tostring(b.what), n)
 end
 
+-- a line's names: {PLAYER} = your cat's name (the game's own lines use it), {P1} / {B2} ... = the cat cast in that slot
+-- (library exercise 2026-10-30: a writer's "{PLAYER}" showed as typed)
+local function fillNames(run, text)
+    return (tostring(text or ""):gsub("{(%w+)}", function(key)
+        if key == "PLAYER" then return Cast.PlayerName() end
+        local a = resolveWho(key, run)[1]
+        return a and nameOf(run, a) or nil
+    end))
+end
+
 function ACTIONS.Say(run, b)
     local a = resolveWho(b.who, run)[1]
-    local line = b.what or ""
+    local line = fillNames(run, b.what or "")
     if not a then return log("%s: %s isn't cast - its line is left out", run.name, b.who) end
     local name = nameOf(run, a)
     log("%s: %s says \"%s\"", run.name, name, line)
@@ -497,7 +507,7 @@ function ACTIONS.Say(run, b)
 end
 
 function ACTIONS.Card(run, b)
-    local text = b.what and (b.who .. " = " .. b.what) or b.who
+    local text = fillNames(run, b.what and (b.who .. " = " .. b.what) or b.who)
     showCard(text, run.t + sayFor(text))
 end
 
@@ -733,6 +743,23 @@ function Cutscenes.Init(c)
         elseif key == cfg.previewKey and key ~= "" and cfg.preview ~= "" then
             ExecuteInGameThread(function() pcall(Cutscenes.Play, cfg.preview) end)
         end
+    end)
+    -- A LINE ON SCREEN FOR ANY MOD (library exercise 2026-10-30: Clan Life's hunt comments had nowhere to show a line
+    -- outside a cutscene): WaCa.Emit("ShowLine", "<who>: <line>" [, seconds]) - the cutscenes' subtitle, gone after
+    -- seconds (default: by its length). Left out while a cutscene plays (its own lines go first).
+    local lineGen = 0
+    WaCa.On("ShowLine", function(text, seconds)
+        if playing or not text or text == "" then return end
+        ExecuteInGameThread(function()
+            lineGen = lineGen + 1
+            local gen = lineGen
+            if not showLine(tostring(text)) then return end
+            log("line: %s", tostring(text))
+            local t = tonumber(seconds) or sayFor(tostring(text))
+            ExecuteInGameThreadWithDelay(math.floor(t * 1000), function()
+                if gen == lineGen and not playing then hideLine() end
+            end)
+        end)
     end)
     WaCa.On("PlayCutscene", function(name)
         ExecuteInGameThread(function()

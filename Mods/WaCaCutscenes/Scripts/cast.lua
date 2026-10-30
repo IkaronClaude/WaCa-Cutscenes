@@ -4,6 +4,8 @@
 --                                the cat with that part in your clan (its quest-giver role or its story role), nearest first
 --                                - your own cat when it holds that rank (you are the deputy: Deputy = your cat)
 --   E:<role>                     one of the game's story roles exactly (ENarrativeRole: E:RiverClanDeputy, E:TheLoner)
+--   S:<role>                     a mod's own role - the cat WaCa Clan Life cast for it (events.ini [Cast], a story pack's
+--                                content/events.ini: S:herbalist = Mossfeather), from its sticky topic "roles.cast"
 --   <a name>                     the cat with that name (Lionstar, Troutwing ...)
 --   Nearest                      the nearest clanmate not cast yet
 -- The cats are the ones the game shows: the camp's named cats (its quest cats) and, when they're about, its walking cats
@@ -41,6 +43,7 @@ end
 
 -- the name your cat goes by: the HUD's own label first (it shows a name WaCa Looks gave it), else the save's
 function Cast.PlayerName()
+    if WaCa.PlayerName then return WaCa.PlayerName() end
     local name
     for _, w in ipairs(FindAllOf("GuiExplorationCharacterSlot") or {}) do
         pcall(function()
@@ -56,6 +59,7 @@ end
 
 -- a cat's name as the game shows it (its name ids -> the text table)
 function Cast.NameOf(cat)
+    if WaCa.CatName then return WaCa.CatName(cat) end
     local name
     pcall(function()
         local cd = cat.MeshCustomizationComponent.CustomData
@@ -75,6 +79,7 @@ end
 
 -- every cat that could play a part: { actor, name, clan, giver, story } - nearest to your cat first
 local function candidates()
+    if WaCa.Cats then return WaCa.Cats() end       -- (WaCa Core's - the same cats, shared with Clan Life)
     local pawn = Cast.Pawn()
     local at = pawn and pawn:K2_GetActorLocation()
     local out = {}
@@ -154,10 +159,18 @@ function Cast.Fill(specs)
             end
         else
             local kind = spec:match("^E:(.+)$")
+            -- a mod's own role: the cat cast for it (WaCa Clan Life's [Cast], topic roles.cast - its object path)
+            local sPath
+            if spec:match("^S:.+$") then
+                local cast = WaCa.Latest and WaCa.Latest("roles.cast")
+                sPath = type(cast) == "table" and cast[spec] or nil
+                if not sPath then log("cast: nobody is cast as %s (WaCa Clan Life's [Cast])", spec) end
+            end
             for _, c in ipairs(pool) do
                 if free(c) then
                     local ok
-                    if kind then ok = c.story == kind
+                    if spec:match("^S:") then ok = sPath ~= nil and Cast.PathOf(c.actor) == sPath
+                    elseif kind then ok = c.story == kind
                     elseif spec == "Nearest" then ok = mine(c)
                     elseif PARTS[spec] then ok = mine(c) and hasPart(c, spec)
                     else ok = c.name:lower() == spec:lower() end
