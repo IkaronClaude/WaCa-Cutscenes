@@ -38,7 +38,8 @@ Beat9 = 16 End
 - **The cast** - each group's cats in order (`A = Player, Deputy` -> A1, A2): `Player`; a part in your clan (`Leader`,
   `Deputy`, `MedicineCat`, `Queen`, `Kit`, `Elder`, `Apprentice`, `Warrior`, `Mentor` - your own cat when it holds
   that rank: `Deputy` is you when you are the deputy); a story role exactly
-  (`E:RiverClanDeputy`); a cat's name (`Lionstar`); `Nearest` (the nearest clanmate not cast yet). A part nobody plays
+  (`E:RiverClanDeputy`); a mod's own role (`S:herbalist` - cast in WaCa Clan Life's `events.ini [Cast]`); a cat's
+  name (`Lionstar`); `Nearest` (the nearest clanmate not cast yet). A part nobody plays
   is left out - the cutscene still plays.
 - **Beats** - `BeatN = <seconds from the start> <Action>: <who> [= <what>]`. Who is a mark (`A1`), a group (`B`), `All`
   or `Player`.
@@ -50,7 +51,7 @@ Beat9 = 16 End
 | `Place: <who>` | onto their marks at once |
 | `Look: <who> = <who>` | turn to a cat (or `Middle`, `Camera`) |
 | `Pose: <who> = <pose>` | `Sit`, `Lie`, `Sleep`, `Eat`, `Sniff`, `Meow`, `Play`, `Dig`, `Groom`, `Win`, `Hit`, `Hiss`, `Growl`, `TailUp`, `Stop` - or a montage's path |
-| `Say: <who> = <line>` | the line on screen with the cat's name |
+| `Say: <who> = <line>` | the line on screen with the cat's name; `{PLAYER}` / `{P1}`, `{P2}` ... = those cats' names |
 | `Card: <text>` | a line on screen without a name |
 | `Camera: <shot> [= <who>]` | `Wide`, `High`, `Orbit [= <who>]`, `Portrait = <who>`, `Over = <who> > <who>`, `Two = <who> & <who>`, `Game` (the game's own camera); add `~<seconds>` to move there instead of cutting |
 | `Fade: <s>` / `FadeIn: <s>` | to black / back |
@@ -69,6 +70,8 @@ camera comes back (your cat stays where the cutscene left it - `PutPlayerBack = 
 - From any mod: `WaCa.Emit("PlayCutscene", "<Name>")` - one at a time; asked for while another plays, it waits.
   Events: `CutsceneStarted(name)`, `CutsceneEnded(name, why)`; the sticky topic `cutscene` ({ playing, name }).
   Clan Life's camp cats hold still while one plays, and its cards wait.
+- **A line without a cutscene**: `WaCa.Emit("ShowLine", "<who>: <line>" [, seconds])` - the cutscenes' subtitle (Clan
+  Life's hunt comments use it).
 
 ## Install
 Needs **UE4SS for Warrior Cats** ([Nexus](https://www.nexusmods.com/warriorcatsclansoftheforest/mods/2)) and
