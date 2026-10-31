@@ -55,7 +55,7 @@ Beat9 = 16 End
 | `Walk: <who> = <who>` | walk up to another cat (or `Middle`), facing it |
 | `Place: <who>` | onto their marks at once |
 | `Look: <who> = <who>` | turn to a cat (or `Middle`, `Camera`) |
-| `Pose: <who> = <pose>` | `Sit`, `Lie`, `Sleep`, `Eat`, `Sniff`, `Meow`, `Play`, `Dig`, `Groom`, `Win`, `Hit`, `Hiss`, `Growl`, `TailUp`, `Stop` - or a montage's path |
+| `Pose: <who> = <pose>` | `Sit`, `Lie`, `Sleep`, `Eat`, `Sniff`, `Meow`, `Play`, `Dig`, `Groom`, `Win`, `Hit`, `Hiss`, `Growl`, `TailUp`, `Stalk`, `Pounce`, `Stop` - or a montage's path |
 | `Say: <who> = <line>` | the line on screen with the cat's name; `{PLAYER}` / `{P1}`, `{P2}` ... = those cats' names |
 | `Card: <text>` | a line on screen without a name |
 | `Camera: <shot> [= <who>]` | `Wide`, `High`, `Orbit [= <who>]`, `Portrait = <who>`, `Over = <who> > <who>`, `Two = <who> & <who>`, `Game` (the game's own camera); add `~<seconds>` to move there instead of cutting |
