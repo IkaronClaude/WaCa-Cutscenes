@@ -62,7 +62,8 @@ local function floorType(hit)
     if ok and t then return t end
     ok, t = pcall(function()
         local comp = deref(hit.Component)
-        return comp and comp:IsValid() and typeOf(comp:GetMaterial(0):GetPhysicalMaterial()) or nil
+        local mat = comp and comp:IsValid() and comp:GetMaterial(0)
+        return mat and mat:IsValid() and typeOf(mat:GetPhysicalMaterial()) or nil
     end)
     return ok and t or nil
 end
@@ -81,12 +82,7 @@ function Stage.GroundAt(a, x, y, z, up)
     if not gz then return nil end
     local t = floorType(hit)
     -- (frozen water - WaCa Clan Life's ice - is ground to stand on; open water stays wet)
-    local ice = false
-    pcall(function()
-        local c = hit.Component
-        if tostring(c):match("^FWeakObjectPtr") then c = c:Get() end
-        ice = c:GetMaterial(0):GetFName():ToString():find("WaCaIce") ~= nil
-    end)
+    local ice = (WaCa.HitMaterialName(hit) or ""):find("WaCaIce") ~= nil
     return gz, not ice and (t == FLOOR_WATER or t == FLOOR_DEEP)
 end
 
