@@ -58,7 +58,8 @@ Beat9 = 16 End
 | `Emit: <event>` | another mod's code runs here |
 | `End` | over now (else 2 s after the last beat) |
 
-While a cutscene plays your keys and the HUD are off; at the end the cats go back where they were and the game's
+While a cutscene plays your keys and the HUD are off (SkipKey - `SpaceBar` by default - skips it;
+`WaCa.Emit("SkipCutscene")` from a mod); at the end the cats go back where they were and the game's
 camera comes back (your cat stays where the cutscene left it - `PutPlayerBack = 1` changes that).
 
 **Writing one:** set `PreviewKey` (and `Preview = <your cutscene>`) in `cutscenes.ini` to play it with a key, and

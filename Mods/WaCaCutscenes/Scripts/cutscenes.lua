@@ -120,6 +120,7 @@ local function readCutscenes()
     cfg.lineOffset = tonumber(s.LineOffset or "") or cfg.lineOffset
     cfg.putPlayerBack = (s.PutPlayerBack or "0") == "1"
     cfg.whereKey, cfg.previewKey, cfg.preview = trim(s.WhereKey), trim(s.PreviewKey), trim(s.Preview)
+    cfg.skipKey = s.SkipKey ~= nil and trim(s.SkipKey) or "SpaceBar"
     defs = {}
     for section, sec in pairs(ini) do
         local name = type(sec) == "table" and section:match("^Cutscene%.(.+)$")
@@ -742,7 +743,14 @@ function Cutscenes.Init(c)
             end)
         elseif key == cfg.previewKey and key ~= "" and cfg.preview ~= "" then
             ExecuteInGameThread(function() pcall(Cutscenes.Play, cfg.preview) end)
+        elseif key == cfg.skipKey and key ~= "" and playing and not playing.over then
+            playing.ending = "skipped"
         end
+    end)
+    -- (a skip: the SkipKey, or any mod - WaCa.Emit("SkipCutscene"); it ends as at its End: fade, cats back, the game's
+    -- camera and HUD; library follow-up (d), 2026-10-31)
+    WaCa.On("SkipCutscene", function()
+        if playing and not playing.over then playing.ending = "skipped" end
     end)
     -- A LINE ON SCREEN FOR ANY MOD (library exercise 2026-10-30: Clan Life's hunt comments had nowhere to show a line
     -- outside a cutscene): WaCa.Emit("ShowLine", "<who>: <line>" [, seconds]) - the cutscenes' subtitle, gone after
