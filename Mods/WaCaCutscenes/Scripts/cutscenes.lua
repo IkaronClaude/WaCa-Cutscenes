@@ -633,6 +633,8 @@ function Cutscenes.Play(name)
             run.order[#run.order + 1] = k
             run.kinds = run.kinds or {}
             run.kinds[k] = f.kind
+            run.hidden = run.hidden or {}
+            run.hidden[k] = f.hidden
             lines[#lines + 1] = string.format("%s = %s (%s)", k, f.name, specs[i])
         else
             lines[#lines + 1] = string.format("%s = nobody (%s)", k, specs[i])
@@ -657,7 +659,7 @@ function Cutscenes.Play(name)
         local ok, err = pcall(function()
             for _, k in ipairs(run.order) do
                 local a, m = run.cats[k], run.marks[k]
-                Stage.Take(a, run.names[k], run.kinds[k])
+                Stage.Take(a, run.names[k], run.kinds[k], run.hidden and run.hidden[k])
                 if walksIn[a:GetAddress()] then
                     local dx, dy = m.spot.X - mid.X, m.spot.Y - mid.Y
                     local len = math.sqrt(dx * dx + dy * dy)

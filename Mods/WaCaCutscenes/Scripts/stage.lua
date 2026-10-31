@@ -145,10 +145,13 @@ local function holdAI(a, on)
 end
 
 -- take a cat into the cutscene (remember where it was; hold its AI)
-function Stage.Take(a, name, kind)
+function Stage.Take(a, name, kind, hidden)
     local path = Cast.PathOf(a)
     if actors[path] then return end
-    actors[path] = { name = name, kind = kind, from = { loc = copyLoc(a:K2_GetActorLocation()), rot = copyRot(a:K2_GetActorRotation()) } }
+    actors[path] = { name = name, kind = kind, hidden = hidden,
+                     from = { loc = copyLoc(a:K2_GetActorLocation()), rot = copyRot(a:K2_GetActorRotation()) } }
+    -- (a cat the game wasn't drawing: shown for the cutscene, hidden again at its end)
+    if hidden then pcall(function() a.SkeletalMeshComponent:SetVisibility(true, true) end) end
     liftOf(actors[path], a)
     if kind == "walker" then holdAI(a, true) end
 end
@@ -300,6 +303,7 @@ function Stage.Release(putPlayerBack)
                 n = n + 1
             end
             if e.kind == "walker" then holdAI(a, false) end
+            if e.hidden then pcall(function() a.SkeletalMeshComponent:SetVisibility(false, true) end) end
         end
     end
     actors = {}

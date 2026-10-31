@@ -178,6 +178,34 @@ function Cast.Fill(specs)
                 end
             end
         end
+        -- (a named / part / story cat the game doesn't draw right now - far off, Lionstar at the river: VM 2026-10-30 -
+        -- is cast all the same and shown for the cutscene; follow-up (e). Quest givers only: a parked filler copy is never
+        -- moved - moving one crashed the game, VM 2026-10-31)
+        if not found and spec ~= "Nearest" and spec ~= "Player" then
+            for _, a in ipairs(FindAllOf("SwtAdventureQuestActor") or {}) do
+                if found then break end
+                pcall(function()
+                    if not a:IsValid() or shown(a) or taken[Cast.PathOf(a)] then return end
+                    if a:GetClass():GetFName():ToString():find("Filler") then return end
+                    local c = { actor = a, name = Cast.NameOf(a) or "", giver = enumName("/Script/SwtQuest.EGiverRole", a.GiverRole) or "",
+                                story = enumName("/Script/SwtQuest.ENarrativeRole", a.narrativeRole) or "", kind = "quest" }
+                    pcall(function() c.clan = enumName("/Script/SwtQuest.EClanType", a.ClanType) end)
+                    local kind = spec:match("^E:(.+)$")
+                    local ok
+                    if spec:match("^S:") then
+                        local cast = WaCa.Latest and WaCa.Latest("roles.cast")
+                        ok = type(cast) == "table" and cast[spec] == Cast.PathOf(a)
+                    elseif kind then ok = c.story == kind
+                    elseif PARTS[spec] then ok = mine(c) and hasPart(c, spec)
+                    else ok = c.name:lower() == spec:lower() end
+                    if ok then
+                        found = take(c, spec)
+                        found.hidden = true
+                        log("cast: %s = %s - not drawn where it is; it is brought in and shown", spec, c.name)
+                    end
+                end)
+            end
+        end
         out[i] = found or false
         -- (nobody with that part: the parts the cats about do have - a writer sees what there is to ask for)
         if not found and PARTS[spec] and not missed then
