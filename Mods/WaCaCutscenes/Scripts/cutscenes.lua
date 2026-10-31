@@ -2,7 +2,8 @@
 -- of config/cutscenes.ini - or of any enabled mod's content/cutscenes.ini:
 --   [Cutscene.RogueStandoff]
 --   Place = Here                 where it plays: Here (in front of your cat), Pile (the fresh-kill pile), a place
---                                from places.ini, or "X Y Z [yaw]"
+--                                from places.ini, one of the game's zones (Zone:I- the Island, Zone:R-05 a camp),
+--                                or "X Y Z [yaw]"
 --   Shape = Facing               how the cats stand: a shape from shapes.ini (Facing, Circle, Line, Pair, Meeting,
 --                                Ceremony ...) - its groups of marks, and which way each group looks
 --   A = Player, Deputy           who stands on a group's marks, in order (A1 = your cat, A2 = the deputy): see cast.lua
@@ -36,8 +37,9 @@ local WaCa, log, modDir
 local Cast, Stage, Camera, Scenes
 local CARD = "/Game/Art/UXD/Blueprints/Popups/WBP_GuiPopupCenterMessage.WBP_GuiPopupCenterMessage_C"
 local cfg = { on = true, ahead = 250, walkFrom = 600, fade = 0.6, maxSeconds = 180, endAfter = 2, hideHud = true,
-              putPlayerBack = false, sayBase = 2, sayPerChar = 0.07, lineOffset = 380 }
+              putPlayerBack = false, sayBase = 2, sayPerChar = 0.07, lineOffset = 380, farAway = 8000, farWait = 4 }
 local defs, shapes, places = {}, {}, {}
+local farFrom = {}                  -- a cutscene waiting for its far place to load -> where your cat was
 local playing                       -- the cutscene on now
 local queue = {}
 local hud                           -- the game's HUD screen (its object path)
@@ -178,6 +180,14 @@ local function placeOf(d)
         log("%s: no fresh-kill pile near - here instead", d.name)
         return ahead(from, camYaw), camYaw, "Here", from
     end
+    -- (one of the game's own zones: Zone:I- the Island, Zone:R-05 the RiverClan camp - WaCa Core's ZonePlace)
+    local zone = name:match("^Zone:%s*(.+)$")
+    if zone then
+        local at = WaCa.ZonePlace and WaCa.ZonePlace(zone)
+        if at then return v(at.X, at.Y, at.Z), Stage.YawTo(from, at), "turn", from end
+        log("%s: no zone %s in the world - here instead", d.name, zone)
+        return ahead(from, camYaw), camYaw, "Here", from
+    end
     local pl = places[name]
     if pl then return pl.at, pl.yaw or Stage.YawTo(from, pl.at), pl.yaw and "fixed" or "turn", from end
     local x, y, z, yaw = name:match("^([%-%d%.]+)[%s,]+([%-%d%.]+)[%s,]+([%-%d%.]+)[%s,]*([%-%d%.]*)$")
@@ -262,12 +272,31 @@ local function fit(name, shape, used, mid, fwd, how, from)
         end
         if best and best.n == #used then break end
     end
+    -- (a place's middle with no room - the Island's zone marks its shore, water around it: VM 2026-10-31 - the nearest
+    -- dry ground round it, 3 / 6 / 10 m out)
+    if not best and how ~= "Here" then
+        for _, ring in ipairs({ 300, 600, 1000 }) do
+            for a = 0, 315, 45 do
+                local m = v(mid.X + math.cos(math.rad(a)) * ring, mid.Y + math.sin(math.rad(a)) * ring, mid.Z)
+                for _, t in ipairs(turns) do
+                    local n, bad, g = fitScore(shape, used, m, fwd + t)
+                    if g and (not best or n > best.n) then
+                        best = { n = n, bad = bad, mid = v(m.X, m.Y, g), yaw = fwd + t, turn = t, moved = ring }
+                    end
+                    if best and best.n == #used then break end
+                end
+                if best and best.n == #used then break end
+            end
+            if best and best.n == #used then break end
+        end
+    end
     if not best then
         log("%s: no ground found for the scene - it plays where it is", name)
         return mid, fwd
     end
     local notes = {}
     if best.turn ~= 0 then notes[#notes + 1] = string.format("turned %d degrees", best.turn) end
+    if best.moved then notes[#notes + 1] = string.format("moved %.0f m off its place (no room there)", best.moved / 100) end
     if best.dist and best.dist < cfg.ahead then notes[#notes + 1] = string.format("%.1f m in front of your cat", best.dist / 100) end
     if best.n < #used then
         notes[#notes + 1] = string.format("only %d of %d marks have room (%s is in the way)", best.n, #used, tostring(best.bad))
@@ -418,6 +447,27 @@ end
 
 local function setHud(visible, run)
     if not cfg.hideHud then return end
+    -- (the cats' name plates too - WBP_GuiQuestNpcWidgetsContainer, one per cat, drawn apart from the HUD: they showed
+    -- over a Gathering's cats, VM 2026-10-31)
+    if not visible then
+        run.platesWas = {}
+        for _, w in ipairs(FindAllOf("WBP_GuiQuestNpcWidgetsContainer_C") or {}) do
+            pcall(function()
+                if w:IsValid() then
+                    run.platesWas[#run.platesWas + 1] = { path = w:GetFullName():gsub("^%S+ ", ""), was = w:GetVisibility() }
+                    w:SetVisibility(1)
+                end
+            end)
+        end
+    elseif run.platesWas then
+        for _, e in ipairs(run.platesWas) do
+            pcall(function()
+                local w = StaticFindObject(e.path)
+                if w and w:IsValid() then w:SetVisibility(e.was) end
+            end)
+        end
+        run.platesWas = nil
+    end
     local o = hud and StaticFindObject(hud)
     if not (o and o:IsValid()) then return end
     pcall(function()
@@ -574,6 +624,10 @@ finish = function(why)
         clearLines()
         local n = 0
         pcall(function() n = Stage.Release(cfg.putPlayerBack) end)
+        -- (the scene took your cat far away: back to where it was, with PutPlayerBack)
+        if cfg.putPlayerBack and run.cameFrom then
+            pcall(function() Cast.Pawn():K2_SetActorLocation(run.cameFrom, false, {}, true) end)
+        end
         pcall(Camera.End)
         setHud(true, run)
         setKeys(true)
@@ -639,6 +693,19 @@ function Cutscenes.Play(name)
         pcall(WaCa.Emit, "CutsceneEnded", name, "not in the world")
         return false
     end
+    -- (a place far from your cat - the Island from your camp: its ground isn't loaded there, VM 2026-10-31 "no ground
+    -- found" - so your cat goes there first and the scene starts once the world around it has come in)
+    local far = (mid.X - from.X) ^ 2 + (mid.Y - from.Y) ^ 2 > cfg.farAway ^ 2
+    if far and not farFrom[name] then
+        farFrom[name] = from
+        log("%s: its place is %.0f m away - your cat goes there first (the place loads)", name,
+            math.sqrt((mid.X - from.X) ^ 2 + (mid.Y - from.Y) ^ 2) / 100)
+        pcall(function() Cast.Pawn():K2_SetActorLocation(v(mid.X, mid.Y, mid.Z + 300), false, {}, true) end)
+        ExecuteInGameThreadWithDelay(math.floor(cfg.farWait * 1000), function() Cutscenes.Play(name) end)
+        return true
+    end
+    local cameFrom = farFrom[name]
+    farFrom[name] = nil
     -- the cast, mark by mark (A1, A2, B1 ... in the shape's order)
     local order, specs = {}, {}
     for _, g in ipairs(shape.order) do
@@ -653,7 +720,7 @@ function Cutscenes.Play(name)
     end
     local found = Cast.Fill(specs)
     local run = { name = name, shape = shape, middle = mid, forward = fwd, cats = {}, names = {}, order = {},
-                  beats = d.beats, next = 1, t = 0 }
+                  beats = d.beats, next = 1, t = 0, cameFrom = cameFrom }
     local lines = {}
     for i, k in ipairs(order) do
         local f = found[i]

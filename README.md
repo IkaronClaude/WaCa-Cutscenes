@@ -28,7 +28,10 @@ Beat9 = 16 End
 ```
 
 - **Place** - where it plays: `Here` (in front of your cat), `Pile` (the fresh-kill pile), a place from
-  `config\places.ini` (or your mod's `content\places.ini`), or `X Y Z [yaw]`. The shape is fitted to the ground: turned
+  `config\places.ini` (or your mod's `content\places.ini`), one of the game's own zones - `Zone:I-` (the Island),
+  `Zone:R-05` (the RiverClan camp), any zone code or name - or `X Y Z [yaw]`. A place far from your cat (over 80 m):
+  your cat goes there first, so the world around it loads, and the scene starts a moment later; a middle with no room
+  (water, rock) moves to the nearest open ground 3-10 m round it. The shape is fitted to the ground: turned
   (and for `Here` brought nearer) until every cat's mark has open ground with nothing in the way - a rock, a den wall;
   a place with its own yaw stays as it is.
 - **Shape** - how the cats stand (`config\shapes.ini`): `Facing` (two sides, A and B, face each other), `Circle` (C),
