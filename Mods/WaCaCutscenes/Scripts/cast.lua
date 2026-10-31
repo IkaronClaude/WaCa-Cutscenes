@@ -178,6 +178,55 @@ function Cast.Fill(specs)
                 end
             end
         end
+        -- (ANOTHER CLAN'S CAT - Clan:ShadowClan.Leader, Clan:WindClan - brought in for the scene: the save's story cat of
+        -- that clan and part when it has one, else a cat made up from the save's cats' looks and names, its clan set;
+        -- spawned (WaCa Core's SpawnCat), gone again at the scene's end. A Gathering's other Clans - VM 2026-10-31)
+        local clan, part = spec:match("^Clan:(%w+)%.?(%w*)$")
+        if not found and clan and WaCa.SpawnCat then
+            local pick
+            for _, c in ipairs(WaCa.StoryCats(clan, part ~= "" and part or nil)) do
+                if not pick and not taken["story:" .. c.key] then pick = c end
+            end
+            if not pick then
+                local all = WaCa.StoryCats()
+                -- (its name: a prefix of one cat, the suffix its part takes - "star" a leader's, "paw" / "kit" - else a
+                -- warrior's of another; never a name the save or the scene already has: "Sunstar" twice, VM 2026-10-31)
+                local special = { Leader = "_STAR", Apprentice = "_PAW", Kit = "_KIT" }
+                local used = {}
+                for _, c in ipairs(all) do used[c.name] = true end
+                for _, f in pairs(out) do if f then used[f.name] = true end end
+                local suffixes = {}
+                for _, c in ipairs(all) do
+                    local sfx = c.look:match('SuffixNameId="([^"]*)"') or ""
+                    if sfx ~= "" and sfx ~= "_STAR" and sfx ~= "_PAW" and sfx ~= "_KIT" then suffixes[#suffixes + 1] = sfx end
+                end
+                for _ = 1, 16 do
+                    if pick or #all == 0 or (#suffixes == 0 and not special[part]) then break end
+                    local a = all[math.random(#all)]
+                    local prefix = a.look:match('PrefixNameId="([^"]*)"') or ""
+                    local suffix = special[part] or suffixes[math.random(#suffixes)]
+                    local name = WaCa.GetText(prefix .. suffix)
+                    if prefix ~= "" and name ~= "" and not name:find("^STR_") and not used[name] then
+                        local look = a.look:gsub("ClanType=%w+", "ClanType=" .. clan)
+                        if not look:find("ClanType=") then look = look:gsub("^%(", "(ClanType=" .. clan .. ",") end
+                        if part ~= "" then look = look:gsub("Role=%w+", "Role=" .. part) end
+                        look = look:gsub('SuffixNameId="[^"]*"', 'SuffixNameId="' .. suffix .. '"')
+                        pick = { key = "made:" .. tostring(i), name = name, look = look, made = true }
+                    end
+                end
+            end
+            if pick then
+                local p = pawn and pawn:K2_GetActorLocation() or { X = 0, Y = 0, Z = 0 }
+                local cat = WaCa.SpawnCat(pick.look, { X = p.X, Y = p.Y, Z = p.Z - 3000 }, 0)
+                if cat then
+                    taken["story:" .. pick.key] = true
+                    found = take({ actor = cat, name = pick.name }, spec)
+                    found.kind = "spawned"
+                    log("cast: %s = %s - %s, brought in for the scene", spec, pick.name,
+                        pick.made and ("a " .. clan .. " cat made up from this save's cats") or ("the save's " .. clan .. " cat"))
+                end
+            end
+        end
         -- (a named / part / story cat the game doesn't draw right now - far off, Lionstar at the river: VM 2026-10-30 -
         -- is cast all the same and shown for the cutscene; follow-up (e). Quest givers only: a parked filler copy is never
         -- moved - moving one crashed the game, VM 2026-10-31)

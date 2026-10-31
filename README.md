@@ -42,7 +42,9 @@ Beat9 = 16 End
   `Deputy`, `MedicineCat`, `Queen`, `Kit`, `Elder`, `Apprentice`, `Warrior`, `Mentor` - your own cat when it holds
   that rank: `Deputy` is you when you are the deputy); a story role exactly
   (`E:RiverClanDeputy`); a mod's own role (`S:herbalist` - cast in WaCa Clan Life's `events.ini [Cast]`); a cat's
-  name (`Lionstar`); `Nearest` (the nearest clanmate not cast yet). A part nobody plays
+  name (`Lionstar`); `Nearest` (the nearest clanmate not cast yet); another Clan's cat - `Clan:ShadowClan.Leader`,
+  `Clan:WindClan` - brought in for the scene (the save's story cat of that clan and part, else one made up from the
+  save's cats with a name of its own) and gone again at its end. A part nobody plays
   is left out - the cutscene still plays.
 - **Beats** - `BeatN = <seconds from the start> <Action>: <who> [= <what>]`. Who is a mark (`A1`), a group (`B`), `All`
   or `Player`.

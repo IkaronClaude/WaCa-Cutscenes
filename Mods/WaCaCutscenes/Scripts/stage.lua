@@ -295,7 +295,10 @@ function Stage.Release(putPlayerBack)
     local n = 0
     for path, e in pairs(actors) do
         local a = StaticFindObject(path)
-        if a and a:IsValid() then
+        if a and a:IsValid() and e.kind == "spawned" then
+            WaCa.Despawn(a)                          -- (a cat brought in for the scene only: gone again)
+            n = n + 1
+        elseif a and a:IsValid() then
             Stage.Pose(a, "Stop")
             if e.kind ~= "player" then playWalk(a, false) end
             if e.kind ~= "player" or putPlayerBack then
