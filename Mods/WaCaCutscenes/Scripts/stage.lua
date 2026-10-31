@@ -20,6 +20,7 @@ local POSES = {
     Win = "Montages/AM_Win", Hit = "Montages/AM_Hit_1",
     Hiss = "Combat/TrickStance/Montages/AM_TC_Loud_Hissing", Growl = "Combat/DefensiveStance/Montages/AM_SC_Warning_Growl",
     TailUp = "Combat/OffensiveStance/Montages/AM_CatMaster_Tail_Pose",
+    Stalk = "Montages/AM_SneakAttack_Start", Pounce = "Combat/OffensiveStance/Montages/AM_WC_Hunting_Leap",
 }
 Stage.POSES = POSES
 
