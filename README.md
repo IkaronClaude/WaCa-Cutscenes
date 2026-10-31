@@ -68,7 +68,7 @@ cats dressed as the cats you name:
 ```ini
 [Cutscene.Ceremony]
 Scene = RankUp          ; the rank-up ceremony in your camp (RankUp.Leader: the leader's at the Moonpool;
-                        ; Prophecy.Closure: StarClan's cats at a prophecy's end)
+                        ; Prophecy.Intro / Prophecy.Closure: a prophecy's start / StarClan's cats at its end)
 Leader = MedicineCat    ; who plays the clan's leader in it
 Warrior.2 = Mossfeather ; the scene's second warrior
 ```

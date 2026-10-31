@@ -3,7 +3,8 @@
 -- animated the game's way - with its cats dressed as the cats you name:
 --   [Cutscene.NewDeputy]
 --   Scene = RankUp               the clan's rank-up ceremony in your camp (RankUp.Leader: the leader's at the Moonpool;
---                                Prophecy.Closure: StarClan's cats at the end of a prophecy). Music = <event>: another
+--                                Prophecy.Intro / Prophecy.Closure: a prophecy's start / StarClan's cats at its end).
+--                                Music = <event>: another
 --                                music than the scene's own
 --   Leader = Freezesong          who the clan's leader is in it: any cast spec (a name, a part, E: / S: roles)
 --   Warrior.2 = S:mentor         the scene's second warrior (its cats by the game's clan jobs, numbered)
@@ -20,6 +21,8 @@ local SCENES = {
     RankUp = function(clan) return "Gameplay.Narrative.RankUp." .. clan, "mus_cutscene_rankup_" .. clan end,
     ["RankUp.Leader"] = function() return "Gameplay.Narrative.RankUp.Leader", "mus_cutscene_rankup_leader" end,
     ["Prophecy.Closure"] = function(clan) return "Gameplay.Narrative.Prophecy.Closure." .. clan, "mus_moonpool_a" end,
+    -- (the intro isn't started by the game state's code we traced - its music unknown: none unless Music = names one)
+    ["Prophecy.Intro"] = function(clan) return "Gameplay.Narrative.Prophecy.Intro." .. clan, nil end,
 }
 local current                       -- { name, tag, slots = { key -> { actor, name } }, clan, done, dressed }
 
