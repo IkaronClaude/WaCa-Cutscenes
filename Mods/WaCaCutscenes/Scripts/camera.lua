@@ -72,19 +72,28 @@ end
 -- A shot that follows its cats keeps the direction it found first (shotTurn) - a camera hopping between directions
 -- from tick to tick would jump about. (A portrait's camera was pulled to 0.2 m from Lionstar's head - something stood
 -- between: VM 2026-10-30.)
-local shotTurn
+local shotTurn, shotRise
 local function bestAround(look, yaw, back, up, keep)
     if keep and shotTurn then
-        return (clear(look, add(add(look, dirOf(yaw + shotTurn), -back), v(0, 0, 1), up)))
+        return (clear(look, add(add(look, dirOf(yaw + shotTurn), -back), v(0, 0, 1), up + (shotRise or 0))))
     end
-    local best, bestK, bestOff
+    -- (each direction also a little higher - rising over the roots / the bank beats pulling in to 1.7 m: follow-up (a),
+    -- VM 2026-10-30 riverbank; a shot's own height first, then its own direction)
+    local best, bestK, bestOff, bestRise
     for _, off in ipairs({ 0, 35, -35, 70, -70, 110, -110 }) do
-        local want = add(add(look, dirOf(yaw + off), -back), v(0, 0, 1), up)
-        local loc, k = clear(look, want)
-        if k >= 0.9 then best, bestK, bestOff = loc, k, off break end
-        if not bestK or k > bestK then best, bestK, bestOff = loc, k, off end
+        for _, rise in ipairs({ 0, 150, 300 }) do
+            local want = add(add(look, dirOf(yaw + off), -back), v(0, 0, 1), up + rise)
+            local loc, k = clear(look, want)
+            if k >= 0.9 then best, bestK, bestOff, bestRise = loc, k, off, rise break end
+            if not bestK or k > bestK + 0.05 then best, bestK, bestOff, bestRise = loc, k, off, rise end
+        end
+        if bestK and bestK >= 0.9 then break end
     end
-    if keep then shotTurn = bestOff end
+    if bestOff ~= 0 or bestRise ~= 0 or bestK < 0.9 then
+        log("camera: the shot's way was blocked - turned %d deg, %d cm higher, %.0f%% of its distance clear", bestOff,
+            bestRise, bestK * 100)
+    end
+    if keep then shotTurn, shotRise = bestOff, bestRise end
     return best
 end
 
@@ -172,7 +181,7 @@ function Camera.Shot(name, targets, blend)
         log("camera: the game's camera%s", (blend or 0) > 0 and string.format(" (%.1f s)", blend) or "")
         return
     end
-    stillCache, shotTurn = nil, nil
+    stillCache, shotTurn, shotRise = nil, nil, nil
     if not place(name, targets, 0) then
         log("camera: can't frame %s with %d cat(s) - the shot stays", tostring(name), #targets)
         return
