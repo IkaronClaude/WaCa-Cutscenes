@@ -80,7 +80,14 @@ function Stage.GroundAt(a, x, y, z, up)
     pcall(function() gz = hit.ImpactPoint.Z end)
     if not gz then return nil end
     local t = floorType(hit)
-    return gz, t == FLOOR_WATER or t == FLOOR_DEEP
+    -- (frozen water - WaCa Clan Life's ice - is ground to stand on; open water stays wet)
+    local ice = false
+    pcall(function()
+        local c = hit.Component
+        if tostring(c):match("^FWeakObjectPtr") then c = c:Get() end
+        ice = c:GetMaterial(0):GetFName():ToString():find("WaCaIce") ~= nil
+    end)
+    return gz, not ice and (t == FLOOR_WATER or t == FLOOR_DEEP)
 end
 
 -- something solid of the world (terrain, a rock, a den wall, a tree) between two points?
