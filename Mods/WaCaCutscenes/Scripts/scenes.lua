@@ -2,7 +2,9 @@
 -- generic" - the ceremony first). A cutscene with a Scene plays one of the game's own cinematics - placed, framed and
 -- animated the game's way - with its cats dressed as the cats you name:
 --   [Cutscene.NewDeputy]
---   Scene = RankUp               the clan's rank-up ceremony in your camp (RankUp.Leader: the leader's at the Moonpool)
+--   Scene = RankUp               the clan's rank-up ceremony in your camp (RankUp.Leader: the leader's at the Moonpool;
+--                                Prophecy.Closure: StarClan's cats at the end of a prophecy). Music = <event>: another
+--                                music than the scene's own
 --   Leader = Freezesong          who the clan's leader is in it: any cast spec (a name, a part, E: / S: roles)
 --   Warrior.2 = S:mentor         the scene's second warrior (its cats by the game's clan jobs, numbered)
 -- How: the scene's cats are the game's stand-ins (one per clan job, numbered: BP_WrcSK_Customization_Cat), dressed by
@@ -13,9 +15,11 @@ local Scenes = {}
 
 local WaCa, log, Cast
 local TYPE_NARRATIVE = 3            -- ESwtEngineSequencerType: the rank-up ceremonies' table
+-- a scene -> its tag and music as the game plays it (the game state's rank-up / prophecy start, traced in the exe)
 local SCENES = {
-    RankUp = function(clan) return "Gameplay.Narrative.RankUp." .. clan end,
-    ["RankUp.Leader"] = function() return "Gameplay.Narrative.RankUp.Leader" end,
+    RankUp = function(clan) return "Gameplay.Narrative.RankUp." .. clan, "mus_cutscene_rankup_" .. clan end,
+    ["RankUp.Leader"] = function() return "Gameplay.Narrative.RankUp.Leader", "mus_cutscene_rankup_leader" end,
+    ["Prophecy.Closure"] = function(clan) return "Gameplay.Narrative.Prophecy.Closure." .. clan, "mus_moonpool_a" end,
 }
 local current                       -- { name, tag, slots = { key -> { actor, name } }, clan, done, dressed }
 
@@ -39,25 +43,35 @@ local function enumValue(path, name)
     return value
 end
 
--- the scene's stand-ins of a clan: "<Job>.<n>" (the n-th by the game's index) and "<Job>" (the first) -> actor
+-- the scene's stand-ins: "<Job>.<n>" (the n-th by the game's index) and "<Job>" (the first) -> actor. A job comes from
+-- your clan's stand-ins when it has any, else from any clan's (StarClan's cats at a prophecy's end are not yours)
 local function standIns(clan)
     local clanValue = enumValue("/Script/SwtQuest.EClanType", clan)
-    local byJob = {}
+    local mine, any = {}, {}
     for _, s in ipairs(FindAllOf("WrcCatSkeletalMeshWithCustomization") or {}) do
         pcall(function()
             if not s:IsValid() or s.bIsPlayer or s:GetClass():GetFName():ToString():find("Player") then return end
-            if clanValue and s.Clan ~= clanValue then return end
             local job = enumName("/Script/SwtQuest.EGiverRole", s.GiverRole)
             if not job or not WaCa.CatComponent(s) then return end
-            byJob[job] = byJob[job] or {}
-            table.insert(byJob[job], { actor = s, index = s.Index })
+            local e = { actor = s, index = s.Index, clan = s.Clan }
+            any[job] = any[job] or {}
+            table.insert(any[job], e)
+            if clanValue and s.Clan == clanValue then
+                mine[job] = mine[job] or {}
+                table.insert(mine[job], e)
+            end
         end)
     end
-    local out = {}
-    for job, list in pairs(byJob) do
-        table.sort(list, function(a, b) return a.index < b.index end)
-        for i, e in ipairs(list) do out[job .. "." .. i] = e.actor end
-        out[job] = list[1].actor
+    local out, byJob = {}, {}
+    for job, list in pairs(any) do
+        local use = mine[job] or list
+        table.sort(use, function(a, b)
+            if a.clan ~= b.clan then return a.clan < b.clan end
+            return a.index < b.index
+        end)
+        for i, e in ipairs(use) do out[job .. "." .. i] = e.actor end
+        out[job] = use[1].actor
+        byJob[job] = use
     end
     return out, byJob
 end
@@ -103,7 +117,10 @@ function Scenes.Play(d, done)
     local clan = WaCa.PlayerClan and WaCa.PlayerClan() or nil
     local make = SCENES[d.scene]
     if not make then
-        log("%s: no scene %s (known: RankUp, RankUp.Leader)", d.name, tostring(d.scene))
+        local known = {}
+        for k in pairs(SCENES) do known[#known + 1] = k end
+        table.sort(known)
+        log("%s: no scene %s (known: %s)", d.name, tostring(d.scene), table.concat(known, ", "))
         return false
     end
     if not clan then
@@ -116,7 +133,7 @@ function Scenes.Play(d, done)
         return false
     end
     local keys, specs = {}, {}
-    for k, spec in pairs(d.roles) do keys[#keys + 1] = k end
+    for k in pairs(d.roles) do if k ~= "Music" then keys[#keys + 1] = k end end
     table.sort(keys)
     for i, k in ipairs(keys) do specs[i] = d.roles[k] end
     local found = Cast.Fill(specs)
@@ -129,10 +146,11 @@ function Scenes.Play(d, done)
             lines[#lines + 1] = string.format("%s = nobody (%s)", k, specs[i])
         end
     end
-    local tag = make(clan)
+    local tag, music = make(clan)
+    music = d.roles.Music or music
     current = { name = d.name, tag = tag, slots = slots, clan = clan, done = done }
     log("%s: begins - the game's scene %s (%s); %s", d.name, d.scene, tag, #lines > 0 and table.concat(lines, ", ") or "its own cats")
-    if not WaCaNative_PlaySequence(manager:GetAddress(), tag, TYPE_NARRATIVE, "") then
+    if not WaCaNative_PlaySequence(manager:GetAddress(), tag, TYPE_NARRATIVE, "", music) then
         log("%s: the game's scene didn't start (WaCa Core's log: [sequences])", d.name)
         current = nil
         return false

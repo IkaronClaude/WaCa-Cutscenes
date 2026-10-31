@@ -67,13 +67,16 @@ A cutscene can instead play one of the game's own cinematics - placed, framed an
 cats dressed as the cats you name:
 ```ini
 [Cutscene.Ceremony]
-Scene = RankUp          ; the rank-up ceremony in your camp (RankUp.Leader: the leader's at the Moonpool)
+Scene = RankUp          ; the rank-up ceremony in your camp (RankUp.Leader: the leader's at the Moonpool;
+                        ; Prophecy.Closure: StarClan's cats at a prophecy's end)
 Leader = MedicineCat    ; who plays the clan's leader in it
 Warrior.2 = Mossfeather ; the scene's second warrior
 ```
 Every key besides `Scene` names one of the scene's cats by its clan job (`Leader`, `Deputy`, `MedicineCat`,
 `Warrior.<n>` ...) and who it is - any cast (a name, a part, `E:` / `S:` roles). If a job you name isn't in the scene,
-the log lists the jobs it has. Your cat plays your cat. Only the scene plays: nobody's rank changes. The game's own
+the log lists the jobs it has (the prophecy's end: `StarClanAncestor`, `Manifestation.<n>`). A job comes from your
+clan's cats in the scene, else from StarClan's. `Music = <event>` plays another music than the scene's own. Your cat
+plays your cat. Only the scene plays: nobody's rank changes. The game's own
 HOLD SKIP skips it.
 
 **Writing one:** set `PreviewKey` (and `Preview = <your cutscene>`) in `cutscenes.ini` to play it with a key, and
