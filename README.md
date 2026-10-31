@@ -62,6 +62,20 @@ While a cutscene plays your keys and the HUD are off (SkipKey - `SpaceBar` by de
 `WaCa.Emit("SkipCutscene")` from a mod); at the end the cats go back where they were and the game's
 camera comes back (your cat stays where the cutscene left it - `PutPlayerBack = 1` changes that).
 
+### The game's own scenes, with your cast
+A cutscene can instead play one of the game's own cinematics - placed, framed and animated the game's way - with its
+cats dressed as the cats you name:
+```ini
+[Cutscene.Ceremony]
+Scene = RankUp          ; the rank-up ceremony in your camp (RankUp.Leader: the leader's at the Moonpool)
+Leader = MedicineCat    ; who plays the clan's leader in it
+Warrior.2 = Mossfeather ; the scene's second warrior
+```
+Every key besides `Scene` names one of the scene's cats by its clan job (`Leader`, `Deputy`, `MedicineCat`,
+`Warrior.<n>` ...) and who it is - any cast (a name, a part, `E:` / `S:` roles). If a job you name isn't in the scene,
+the log lists the jobs it has. Your cat plays your cat. Only the scene plays: nobody's rank changes. The game's own
+HOLD SKIP skips it.
+
 **Writing one:** set `PreviewKey` (and `Preview = <your cutscene>`) in `cutscenes.ini` to play it with a key, and
 `WhereKey` to log where your cat stands as a ready `places.ini` line.
 

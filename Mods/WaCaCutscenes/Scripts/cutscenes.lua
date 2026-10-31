@@ -13,6 +13,7 @@
 --   Beat4 = 6 Pose: A2 = Growl
 --   Beat5 = 8 Camera: Portrait = A1
 --   Beat6 = 12 End
+-- Or one of the GAME'S OWN scenes, its cats dressed as yours (scenes.lua): Scene = RankUp, Leader = <who>, ...
 -- Who: a mark (A1, B2), a group (B), All, Player. Actions:
 --   WalkIn: <who>                the cats walk onto their marks (they start a few metres out - WalkFrom)
 --   Walk: <who> = <who>          walk up to another cat (or Middle), facing it
@@ -32,7 +33,7 @@
 local Cutscenes = {}
 
 local WaCa, log, modDir
-local Cast, Stage, Camera
+local Cast, Stage, Camera, Scenes
 local CARD = "/Game/Art/UXD/Blueprints/Popups/WBP_GuiPopupCenterMessage.WBP_GuiPopupCenterMessage_C"
 local cfg = { on = true, ahead = 250, walkFrom = 600, fade = 0.6, maxSeconds = 180, endAfter = 2, hideHud = true,
               putPlayerBack = false, sayBase = 2, sayPerChar = 0.07, lineOffset = 380 }
@@ -127,6 +128,13 @@ local function readCutscenes()
         if name and sec.Off ~= "1" then
             local d = { name = name, place = trim(sec.Place or "Here"), shape = trim(sec.Shape or "Facing"), groups = {},
                         beats = {}, mods = sec.__mods }
+            -- (one of the game's own scenes, re-cast: Scene = RankUp, and its parts - every other key - see scenes.lua)
+            if trim(sec.Scene) ~= "" then
+                d.scene, d.roles = trim(sec.Scene), {}
+                for _, k in ipairs(sec.__order or {}) do
+                    if k ~= "Scene" and k ~= "Off" and trim(sec[k]) ~= "" then d.roles[k] = trim(sec[k]) end
+                end
+            end
             for _, k in ipairs(sec.__order or {}) do
                 if k:match("^%u$") then d.groups[k] = split(sec[k], ",") end
                 local n = k:match("^Beat(%d+)$")
@@ -598,6 +606,27 @@ function Cutscenes.Play(name)
         pcall(WaCa.Emit, "CutsceneEnded", name, "off")
         return false
     end
+    if d.scene then
+        local run = { name = name, scene = true }
+        playing = run
+        local ok = Scenes.Play(d, function(why)
+            if playing ~= run then return end
+            playing = nil
+            log("%s: over (%s)", name, why)
+            pcall(WaCa.Emit, "CutsceneEnded", name, why)
+            pcall(WaCa.Publish, "cutscene", { playing = false, name = name }, true)
+            local nextName = table.remove(queue, 1)
+            if nextName then ExecuteInGameThreadWithDelay(1000, function() Cutscenes.Play(nextName) end) end
+        end)
+        if not ok then
+            playing = nil
+            pcall(WaCa.Emit, "CutsceneEnded", name, "the game's scene didn't start")
+            return false
+        end
+        pcall(WaCa.Emit, "CutsceneStarted", name)
+        pcall(WaCa.Publish, "cutscene", { playing = true, name = name }, true)
+        return true
+    end
     local shape = shapes[d.shape]
     if not shape then
         log("%s: no shape %s", name, d.shape)
@@ -707,10 +736,12 @@ function Cutscenes.Init(c)
     Cast = require("cast")
     Stage = require("stage")
     Camera = require("camera")
+    Scenes = require("scenes")
     readShapes()
     readPlaces()
     local camCfg = readCutscenes()
     Cast.Init({ WaCa = WaCa, log = log })
+    Scenes.Init({ WaCa = WaCa, log = log, Cast = Cast })
     Stage.Init({ WaCa = WaCa, log = log, Cast = Cast, walkSpeed = cfg.walkSpeed })
     Camera.Init({ WaCa = WaCa, log = log, Stage = Stage, Cast = Cast, camera = {
         fov = camCfg.FOV, wideBack = camCfg.WideBack, wideUp = camCfg.WideUp, orbitRadius = camCfg.OrbitRadius,
@@ -745,14 +776,14 @@ function Cutscenes.Init(c)
             end)
         elseif key == cfg.previewKey and key ~= "" and cfg.preview ~= "" then
             ExecuteInGameThread(function() pcall(Cutscenes.Play, cfg.preview) end)
-        elseif key == cfg.skipKey and key ~= "" and playing and not playing.over then
+        elseif key == cfg.skipKey and key ~= "" and playing and not playing.over and not playing.scene then
             playing.ending = "skipped"
         end
     end)
     -- (a skip: the SkipKey, or any mod - WaCa.Emit("SkipCutscene"); it ends as at its End: fade, cats back, the game's
     -- camera and HUD; library follow-up (d), 2026-10-31)
     WaCa.On("SkipCutscene", function()
-        if playing and not playing.over then playing.ending = "skipped" end
+        if playing and not playing.over and not playing.scene then playing.ending = "skipped" end
     end)
     -- A LINE ON SCREEN FOR ANY MOD (library exercise 2026-10-30: Clan Life's hunt comments had nowhere to show a line
     -- outside a cutscene): WaCa.Emit("ShowLine", "<who>: <line>" [, seconds]) - the cutscenes' subtitle, gone after
