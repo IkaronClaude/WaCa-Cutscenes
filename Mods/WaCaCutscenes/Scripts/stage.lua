@@ -251,7 +251,9 @@ local meshClass
 function Stage.Pose(a, pose)
     if pose == "Stop" or pose == "Idle" then
         if pcall(function() a:StopAnimMontage(nil) end) then return true end
-        return pcall(function() bodyOf(a):GetAnimInstance():Montage_Stop(0.25, nil) end)
+        local body
+        pcall(function() body = bodyOf(a) end)
+        return WaCa.StopMontage(body)                       -- (null-safe)
     end
     local path = POSES[pose] and (MONTAGES .. POSES[pose]) or pose
     if not path:find("%.") then path = path .. "." .. path:match("([^/]+)$") end
@@ -265,7 +267,9 @@ function Stage.Pose(a, pose)
     if e and e.kind ~= "player" then playWalk(a, false) end
     if pcall(function() a:PlayAnimMontage(m, 1.0, FName("None")) end) then return true end
     meshClass = meshClass or StaticFindObject("/Script/Engine.SkeletalMeshComponent")
-    return pcall(function() a:GetComponentByClass(meshClass):GetAnimInstance():Montage_Play(m, 1.0, 0, 0.0, true) end)
+    local body
+    pcall(function() body = a:GetComponentByClass(meshClass) end)
+    return WaCa.PlayMontage(body, m) ~= nil                 -- (null-safe)
 end
 
 -- a cat's head: its body's head bone when it has one (cat skeletons name it differently - tried in turn), else a little
