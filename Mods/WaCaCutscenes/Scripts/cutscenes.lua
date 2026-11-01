@@ -820,6 +820,8 @@ function Cutscenes.Init(c)
     table.sort(shapeNames)
     log("%s - %d cutscene(s): %s; shapes: %s", cfg.on and "on" or "off (cutscenes.ini On = 0)", #names,
         table.concat(names, ", "), table.concat(shapeNames, ", "))
+    -- (for other mods - WaCa Clan Life's story check: every Cutscene: step names one of these)
+    pcall(WaCa.Publish, "cutscenes.names", names, true)
     WaCa.On("ScreenShown", function(screen)
         local cls = screen:GetClass():GetFName():ToString()
         if cls:find("^WBP_GuiHudGame") then hud = (screen:GetFullName():gsub("^%S+ ", "")) end
