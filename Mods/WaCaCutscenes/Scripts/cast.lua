@@ -244,13 +244,21 @@ function Cast.Fill(specs)
         local rogueName = spec:match("^Rogue:(.+)$")
         if not found and (spec == "Rogue" or rogueName) and WaCa.SpawnCat then
             local all = WaCa.StoryCats()
+            -- (a NAMED rogue always looks the same: its look is from the cat its name picks - the list sorted, the save's
+            -- order isn't stable - a writer's recurring Quill was another cat in every scene: library exercise
+            -- 2026-11-01)
+            table.sort(all, function(x, y) return tostring(x.name) < tostring(y.name) end)
+            local seed = 0
+            for ch in tostring(rogueName or ""):gmatch(".") do seed = (seed * 31 + ch:byte()) % 2147483647 end
+            local tries = 0
             local used = {}
             for _, c in ipairs(all) do used[c.name] = true end
             for _, f in pairs(out) do if f then used[f.name] = true end end
             local pick
             for _ = 1, 16 do
                 if pick or #all == 0 then break end
-                local a = all[math.random(#all)]
+                local a = rogueName and all[(seed + tries) % #all + 1] or all[math.random(#all)]
+                tries = tries + 1
                 local prefix = a.look:match('PrefixNameId="([^"]*)"') or ""
                 -- (the game's own rogue names first - WrcNPCGenerationManager.RemainingRogueNames: Tiger, Fox, Fury ...
                 -- by their text key; else a cat's kit name less "kit" - a prefix alone has no text: "Mosskit" -> "Moss")
@@ -273,7 +281,7 @@ function Cast.Fill(specs)
                 end
                 local name = rogueName or word
                 if name ~= "" and not name:find("^STR_") and not used[name] then
-                    pick = { name = name, look = a.look:gsub("Role=%w+", "Role=Warrior") }
+                    pick = { name = name, look = a.look:gsub("Role=%w+", "Role=Warrior"), from = a.name }
                 end
             end
             if pick then
@@ -282,7 +290,7 @@ function Cast.Fill(specs)
                 if cat then
                     found = take({ actor = cat, name = pick.name }, spec)
                     found.kind = "spawned"
-                    log("cast: %s = %s - a rogue, brought in for the scene", spec, pick.name)
+                    log("cast: %s = %s - a rogue, brought in for the scene (looks like %s)", spec, pick.name, tostring(pick.from))
                 end
             end
         end
