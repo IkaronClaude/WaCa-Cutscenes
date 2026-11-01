@@ -12,7 +12,7 @@ local Camera = {}
 
 local WaCa, log, Stage, Cast
 local cfg = { fov = 60, wideBack = 700, wideUp = 300, highBack = 300, highUp = 1100, orbitRadius = 650, orbitUp = 260,
-              orbitSpeed = 9, portrait = 170, over = 130, twoMin = 280, seenCheck = 1.0, waterClear = 60 }
+              orbitSpeed = 9, portrait = 170, over = 130, twoMin = 280, seenCheck = 1.0 }
 local cam, before                  -- the camera actor; the view target before the cutscene
 local shot                         -- { pose = fn() -> loc, look; from = {loc, rot}; blend; t }
 local scene                        -- { middle, forward (yaw) } of the cutscene playing
@@ -140,56 +140,9 @@ end
 -- (Wide / High stand still: found once per shot - seven traces a tick for a camera that doesn't move is waste)
 local STILL = { Wide = true, High = true }
 local stillCache
--- ABOVE THE WATER: a camera at or under a water surface sees a flat pale plane (the river edge's Two shot, VM
--- 2026-11-01 - water has no collision for the sight trace). The water planes answer object queries (made so at the
--- cutscene's start - as WaCa Hunting's wading does); a shot over water is held WaterClear cm above its surface.
-local function waterUnder(loc)
-    kismet = kismet or StaticFindObject("/Script/Engine.Default__KismetSystemLibrary")
-    local hit = {}
-    local ok, yes = pcall(function()
-        return kismet:LineTraceSingleForObjects(Cast.Pawn(), v(loc.X, loc.Y, loc.Z + 800), v(loc.X, loc.Y, loc.Z - 100), { 0 }, true,
-            Stage.Actors(), 0, hit, true, { R = 0, G = 0, B = 0, A = 0 }, { R = 0, G = 0, B = 0, A = 0 }, 0)
-    end)
-    if not (ok and yes) then return nil end
-    local name = WaCa.HitMaterialName and WaCa.HitMaterialName(hit) or nil
-    if not (name and name:find("^MI_WC_Water")) then return nil end
-    local z
-    pcall(function() z = hit.ImpactPoint.Z end)
-    return z
-end
-local function aboveWater(loc)
-    if not loc or cfg.waterClear <= 0 then return loc end
-    local z = waterUnder(loc)
-    if z and loc.Z < z + cfg.waterClear then
-        if not (shot and shot.overWater) then
-            if shot then shot.overWater = true end
-            log("camera: over water - held %.0f cm above its surface (was %.0f cm)", cfg.waterClear, loc.Z - z)
-        end
-        return v(loc.X, loc.Y, z + cfg.waterClear)
-    end
-    return loc
-end
-function Camera.ReadyWater()
-    local n = 0
-    for _, c in ipairs(FindAllOf("StaticMeshComponent") or {}) do
-        pcall(function()
-            local m = c:GetMaterial(0)
-            if m and m:IsValid() and m:GetFName():ToString():find("^MI_WC_Water") then
-                if c:GetCollisionEnabled() == 0 then
-                    c:SetCollisionResponseToAllChannels(0)
-                    c:SetCollisionEnabled(1)
-                end
-                n = n + 1
-            end
-        end)
-    end
-    return n
-end
-
 local function place(name, targets, t)
     if STILL[name] and stillCache and stillCache.name == name then return stillCache.loc, stillCache.look end
     local loc, look = resolve(name, targets, t)
-    loc = aboveWater(loc)
     if STILL[name] and loc then stillCache = { name = name, loc = loc, look = look } end
     return loc, look
 end
@@ -241,7 +194,6 @@ end
 function Camera.Begin(middle, forward)
     scene = { middle = middle, forward = forward }
     shot = nil
-    if cfg.waterClear > 0 then pcall(Camera.ReadyWater) end
 end
 
 -- a shot: name, targets (cat actors), blend seconds (0 = cut)
