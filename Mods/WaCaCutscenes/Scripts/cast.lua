@@ -227,6 +227,39 @@ function Cast.Fill(specs)
                 end
             end
         end
+        -- (A ROGUE - Rogue, Rogue:Slash - a clanless cat brought in for the scene, dressed from one of the save's cats; its
+        -- name the writer's, else one word - a prefix of one of the save's cats ("Ash"), as rogues' names go; gone again
+        -- at the scene's end. Library exercise 2026-11-01: a raid on the camp had no way to cast its rogues)
+        local rogueName = spec:match("^Rogue:(.+)$")
+        if not found and (spec == "Rogue" or rogueName) and WaCa.SpawnCat then
+            local all = WaCa.StoryCats()
+            local used = {}
+            for _, c in ipairs(all) do used[c.name] = true end
+            for _, f in pairs(out) do if f then used[f.name] = true end end
+            local pick
+            for _ = 1, 16 do
+                if pick or #all == 0 then break end
+                local a = all[math.random(#all)]
+                local prefix = a.look:match('PrefixNameId="([^"]*)"') or ""
+                -- (a prefix alone has no text of its own (VM 2026-11-01: the unnamed rogue went uncast) - its kit name
+                -- does: "Mosskit" -> "Moss")
+                local kit = prefix ~= "" and WaCa.GetText(prefix .. "_KIT") or ""
+                local word = kit:match("^(.-)kit$") or ""
+                local name = rogueName or word
+                if name ~= "" and not name:find("^STR_") and not used[name] then
+                    pick = { name = name, look = a.look:gsub("Role=%w+", "Role=Warrior") }
+                end
+            end
+            if pick then
+                local p = pawn and pawn:K2_GetActorLocation() or { X = 0, Y = 0, Z = 0 }
+                local cat = WaCa.SpawnCat(pick.look, { X = p.X, Y = p.Y, Z = p.Z - 3000 }, 0)
+                if cat then
+                    found = take({ actor = cat, name = pick.name }, spec)
+                    found.kind = "spawned"
+                    log("cast: %s = %s - a rogue, brought in for the scene", spec, pick.name)
+                end
+            end
+        end
         -- (a named / part / story cat the game doesn't draw right now - far off, Lionstar at the river: VM 2026-10-30 -
         -- is cast all the same and shown for the cutscene; follow-up (e). Quest givers only: a parked filler copy is never
         -- moved - moving one crashed the game, VM 2026-10-31)
