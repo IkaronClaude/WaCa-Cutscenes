@@ -44,7 +44,8 @@ Beat9 = 16 End
   (`E:RiverClanDeputy`); a mod's own role (`S:herbalist` - cast in WaCa Clan Life's `events.ini [Cast]`); a cat's
   name (`Lionstar`); `Nearest` (the nearest clanmate not cast yet); another Clan's cat - `Clan:ShadowClan.Leader`,
   `Clan:WindClan` - brought in for the scene (the save's story cat of that clan and part, else one made up from the
-  save's cats with a name of its own) and gone again at its end; a rogue - `Rogue:Slash` (named - it looks the same in every scene), `Rogue` (one of the game's own
+  save's cats with a name of its own) and gone again at its end; a rogue - `Rogue:Slash` (named - it looks the same in every scene; a pack can set its look: `[Rogue.Slash]` `From = <a cat>` and
+  any of the game's look fields, e.g. `FurColorIdx = 3`), `Rogue` (one of the game's own
   rogue names - Tiger, Fox, Slate ...) - brought in the same way; a mod's own role played by such a cat
   (Clan Life's `[Cast] S:loner = Rogue:Quill`) too. A part nobody plays
   is left out - the cutscene still plays.

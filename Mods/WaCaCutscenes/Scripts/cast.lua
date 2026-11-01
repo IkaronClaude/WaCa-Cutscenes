@@ -15,6 +15,21 @@ local Cast = {}
 local WaCa, log
 local enumCache = {}
 
+-- the packs' own brought-in cats ([Rogue.<Name>] in cutscenes.ini): name -> { from, fields = { {key, value} } }
+local rogueLooks = {}
+function Cast.SetRogues(t) rogueLooks = t or {} end
+
+-- a look text with some of the game's look fields set ("(ClanType=RiverClan,...,FurColorIdx=11,...)")
+local function withFields(look, fields)
+    for _, f in ipairs(fields or {}) do
+        local k, v = f[1], f[2]
+        local n
+        look, n = look:gsub("([,(])" .. k .. "=[^,()]*", "%1" .. k .. "=" .. v)
+        if n == 0 then look = look:gsub("%)%s*$", "," .. k .. "=" .. v .. ")") end
+    end
+    return look
+end
+
 local function enumName(path, value)
     local cache = enumCache[path]
     if not cache then
@@ -258,6 +273,11 @@ function Cast.Fill(specs)
             for _ = 1, 16 do
                 if pick or #all == 0 then break end
                 local a = rogueName and all[(seed + tries) % #all + 1] or all[math.random(#all)]
+                -- (the pack's own look for this rogue: From = a cat of the save)
+                local own = rogueName and rogueLooks[rogueName]
+                if own and own.from and tries == 0 then
+                    for _, c in ipairs(all) do if c.name == own.from then a = c break end end
+                end
                 tries = tries + 1
                 local prefix = a.look:match('PrefixNameId="([^"]*)"') or ""
                 -- (the game's own rogue names first - WrcNPCGenerationManager.RemainingRogueNames: Tiger, Fox, Fury ...
@@ -281,7 +301,10 @@ function Cast.Fill(specs)
                 end
                 local name = rogueName or word
                 if name ~= "" and not name:find("^STR_") and not used[name] then
-                    pick = { name = name, look = a.look:gsub("Role=%w+", "Role=Warrior"), from = a.name }
+                    local look = a.look:gsub("Role=%w+", "Role=Warrior")
+                    local own = rogueName and rogueLooks[rogueName]
+                    if own and #own.fields > 0 then look = withFields(look, own.fields) end
+                    pick = { name = name, look = look, from = a.name .. ((own and #own.fields > 0) and (" + " .. #own.fields .. " field(s) of its pack") or "") }
                 end
             end
             if pick then
@@ -340,5 +363,6 @@ function Cast.Fill(specs)
 end
 
 function Cast.Init(c) WaCa, log = c.WaCa, c.log end
+
 
 return Cast

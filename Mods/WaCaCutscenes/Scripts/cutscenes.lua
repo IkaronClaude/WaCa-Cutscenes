@@ -128,6 +128,21 @@ local function readCutscenes()
     cfg.skipKey = s.SkipKey ~= nil and trim(s.SkipKey) or "SpaceBar"
     if cfg.skipKey ~= "" then cfg.skipKey = WaCa.ModKey("Cutscenes", "Skip", cfg.skipKey, "skip a cutscene") end
     defs = {}
+    -- A PACK'S OWN BROUGHT-IN CAT ([Rogue.<Name>]): From = the cat whose look it starts from, then any of the game's
+    -- own look fields (FurColorIdx, Pattern01ColorIdx, BodyValue, EyeValue ...) - Rogue:<Name> in a cast is then
+    -- always that cat (library exercise 2026-11-01: a brought-in cat's coat couldn't be the writer's)
+    local rogues = {}
+    for section, sec in pairs(ini) do
+        local name = type(sec) == "table" and section:match("^Rogue%.(.+)$")
+        if name then
+            local r = { from = sec.From and trim(sec.From) or nil, fields = {} }
+            for _, k in ipairs(sec.__order or {}) do
+                if k ~= "From" and k ~= "Off" then r.fields[#r.fields + 1] = { k, trim(sec[k]) } end
+            end
+            rogues[name] = r
+        end
+    end
+    if Cast.SetRogues then Cast.SetRogues(rogues) end
     for section, sec in pairs(ini) do
         local name = type(sec) == "table" and section:match("^Cutscene%.(.+)$")
         if name and sec.Off ~= "1" then
