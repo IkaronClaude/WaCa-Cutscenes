@@ -785,8 +785,11 @@ function Cutscenes.Play(name)
     playing = run
     log("%s: begins - %s at %s (%.0f %.0f, facing %.0f); %s; %d beat(s)", name, d.shape, d.place, mid.X, mid.Y, fwd,
         table.concat(lines, ", "), #d.beats)
-    pcall(WaCa.Emit, "CutsceneStarted", name)
-    pcall(WaCa.Publish, "cutscene", { playing = true, name = name }, true)
+    -- (the cast's object paths go with it: other mods keep their own cats out of the scene - Clan Life's party)
+    local castPaths = {}
+    for _, k in ipairs(run.order) do pcall(function() castPaths[#castPaths + 1] = Cast.PathOf(run.cats[k]) end) end
+    pcall(WaCa.Emit, "CutsceneStarted", name, castPaths)
+    pcall(WaCa.Publish, "cutscene", { playing = true, name = name, cast = castPaths }, true)
     setKeys(false)
     fade(0, 1, cfg.fade)
     ExecuteInGameThreadWithDelay(math.floor(cfg.fade * 1000) + 100, function()
