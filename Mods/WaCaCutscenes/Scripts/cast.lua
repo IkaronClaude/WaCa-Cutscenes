@@ -62,7 +62,8 @@ function Cast.NameOf(cat)
     if WaCa.CatName then return WaCa.CatName(cat) end
     local name
     pcall(function()
-        local cd = cat.MeshCustomizationComponent.CustomData
+        local cd = WaCa.CustomData(cat)
+        if not cd then return end
         name = WaCa.GetText(cd.PrefixNameId:ToString() .. cd.SuffixNameId:ToString())
     end)
     return (name and name ~= "") and name or nil
@@ -88,7 +89,7 @@ local function candidates()
         -- (a quest cat says its clan itself; a walking cat in its look)
         local clan
         pcall(function() clan = a.ClanType end)
-        if type(clan) ~= "number" then pcall(function() clan = a.MeshCustomizationComponent.CustomData.ClanType end) end
+        if type(clan) ~= "number" then pcall(function() local cd = WaCa.CustomData(a) if cd then clan = cd.ClanType end end) end
         out[#out + 1] = {
             actor = a, name = Cast.NameOf(a) or a:GetFName():ToString(),
             clan = type(clan) == "number" and enumName("/Script/SwtQuest.EClanType", clan) or nil,
