@@ -151,6 +151,16 @@ function Cast.Fill(specs)
     for _, i in ipairs(order) do
         local spec = specs[i]
         local found
+        -- (a mod's own role played by a cat who isn't in the world - [Cast] S:loner = Rogue:Quill, = Clan:ShadowClan:
+        -- brought in for the scene like the spec itself. Library exercise 2026-11-01: a visiting loner had no way in)
+        if spec:match("^S:.+$") then
+            local specs2 = WaCa.Latest and WaCa.Latest("roles.specs")
+            local to = type(specs2) == "table" and specs2[spec] or nil
+            if to and (to:match("^Rogue") or to:match("^Clan:")) then
+                log("cast: %s is played by %s - brought in for the scene", spec, to)
+                spec = to
+            end
+        end
         if spec == "Player" or (spec == myPart and not playerCast) then
             if pawn and not playerCast then
                 found = { actor = pawn, name = Cast.PlayerName(), spec = spec, kind = "player" }

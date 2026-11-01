@@ -45,7 +45,8 @@ Beat9 = 16 End
   name (`Lionstar`); `Nearest` (the nearest clanmate not cast yet); another Clan's cat - `Clan:ShadowClan.Leader`,
   `Clan:WindClan` - brought in for the scene (the save's story cat of that clan and part, else one made up from the
   save's cats with a name of its own) and gone again at its end; a rogue - `Rogue:Slash` (named), `Rogue` (one of the game's own
-  rogue names - Tiger, Fox, Slate ...) - brought in the same way. A part nobody plays
+  rogue names - Tiger, Fox, Slate ...) - brought in the same way; a mod's own role played by such a cat
+  (Clan Life's `[Cast] S:loner = Rogue:Quill`) too. A part nobody plays
   is left out - the cutscene still plays.
 - **Beats** - `BeatN = <seconds from the start> <Action>: <who> [= <what>]`. Who is a mark (`A1`), a group (`B`), `All`
   or `Player`.
