@@ -228,7 +228,7 @@ function Cast.Fill(specs)
             end
         end
         -- (A ROGUE - Rogue, Rogue:Slash - a clanless cat brought in for the scene, dressed from one of the save's cats; its
-        -- name the writer's, else one word - a prefix of one of the save's cats ("Ash"), as rogues' names go; gone again
+        -- name the writer's, else one of the game's own rogue names (Tiger, Fox ...); gone again
         -- at the scene's end. Library exercise 2026-11-01: a raid on the camp had no way to cast its rogues)
         local rogueName = spec:match("^Rogue:(.+)$")
         if not found and (spec == "Rogue" or rogueName) and WaCa.SpawnCat then
@@ -241,10 +241,25 @@ function Cast.Fill(specs)
                 if pick or #all == 0 then break end
                 local a = all[math.random(#all)]
                 local prefix = a.look:match('PrefixNameId="([^"]*)"') or ""
-                -- (a prefix alone has no text of its own (VM 2026-11-01: the unnamed rogue went uncast) - its kit name
-                -- does: "Mosskit" -> "Moss")
-                local kit = prefix ~= "" and WaCa.GetText(prefix .. "_KIT") or ""
-                local word = kit:match("^(.-)kit$") or ""
+                -- (the game's own rogue names first - WrcNPCGenerationManager.RemainingRogueNames: Tiger, Fox, Fury ...
+                -- by their text key; else a cat's kit name less "kit" - a prefix alone has no text: "Mosskit" -> "Moss")
+                local word
+                if not rogueName then
+                    local names = {}
+                    pcall(function()
+                        FindFirstOf("WrcNPCGenerationManager").RemainingRogueNames:ForEach(function(_, e)
+                            local r = e:get()
+                            local t = WaCa.GetText(r.PrefixID:ToString())
+                            if t == "" or t:find("^STR_") then t = r.Name:ToString() end
+                            if t ~= "" and not used[t] then names[#names + 1] = t end
+                        end)
+                    end)
+                    word = #names > 0 and names[math.random(#names)] or nil
+                    if not word then
+                        local kit = prefix ~= "" and WaCa.GetText(prefix .. "_KIT") or ""
+                        word = kit:match("^(.-)kit$") or ""
+                    end
+                end
                 local name = rogueName or word
                 if name ~= "" and not name:find("^STR_") and not used[name] then
                     pick = { name = name, look = a.look:gsub("Role=%w+", "Role=Warrior") }
