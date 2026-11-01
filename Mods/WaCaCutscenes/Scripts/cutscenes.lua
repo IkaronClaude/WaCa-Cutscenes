@@ -27,6 +27,7 @@
 --   Camera: <shot> [= <who> ...] [~<seconds>]   see camera.lua
 --   Fade: <seconds> / FadeIn: <seconds>
 --   Emit: <event>                another mod's code runs here (WaCa.Emit)
+--   Wait: <who> / <seconds>      the timeline holds till those cats are on their marks (WaitMax), or a pause
 --   End                          the cutscene is over (else 2 s after the last beat)
 -- While one plays: your keys and the HUD are off, the cast's cats are held; at the end the cats go back where they
 -- were, the game's camera comes back. Events for other mods: PlayCutscene(name) plays one (queued if one is on);
@@ -36,7 +37,7 @@ local Cutscenes = {}
 local WaCa, log, modDir
 local Cast, Stage, Camera, Scenes
 local CARD = "/Game/Art/UXD/Blueprints/Popups/WBP_GuiPopupCenterMessage.WBP_GuiPopupCenterMessage_C"
-local cfg = { on = true, ahead = 250, walkFrom = 600, fade = 0.6, maxSeconds = 180, endAfter = 2, hideHud = true,
+local cfg = { on = true, ahead = 250, walkFrom = 600, fade = 0.6, maxSeconds = 180, endAfter = 2, hideHud = true, waitMax = 20,
               putPlayerBack = false, sayBase = 2, sayPerChar = 0.07, lineOffset = 380, farAway = 8000, farWait = 4 }
 local defs, shapes, places = {}, {}, {}
 local farFrom = {}                  -- a cutscene waiting for its far place to load -> where your cat was
@@ -119,6 +120,7 @@ local function readCutscenes()
     cfg.walkFrom = tonumber(s.WalkFrom or "") or cfg.walkFrom
     cfg.walkSpeed = tonumber(s.WalkSpeed or "")
     cfg.maxSeconds = tonumber(s.MaxSeconds or "") or cfg.maxSeconds
+    cfg.waitMax = tonumber(s.WaitMax or "") or cfg.waitMax
     cfg.hideHud = (s.HideHud or "1") ~= "0"
     cfg.lineOffset = tonumber(s.LineOffset or "") or cfg.lineOffset
     cfg.putPlayerBack = (s.PutPlayerBack or "0") == "1"
@@ -580,6 +582,19 @@ function ACTIONS.FadeIn(run, b) fade(1, 0, tonumber(b.who) or 1) end
 function ACTIONS.Emit(run, b) WaCa.Emit(b.who, run.name) end
 function ACTIONS.End(run) run.ending = "its End beat" end
 
+-- Wait: <who> - the timeline holds till those cats are on their marks (a walk takes what it takes: a writer can't
+-- know how far out a cat starts, or the game's speed - library exercise 2026-11-01, a line said before its speaker
+-- had walked in); at most WaitMax s. Wait: <seconds> - a plain pause.
+function ACTIONS.Wait(run, b)
+    local secs = tonumber(b.who or "")
+    if secs then
+        run.hold = { till = secs, since = 0, why = string.format("%.1f s", secs) }
+        return
+    end
+    local cats = resolveWho(b.who, run)
+    run.hold = { cats = cats, since = 0, why = tostring(b.who) }
+end
+
 -- --- playing one ---
 
 local finish
@@ -590,9 +605,31 @@ local function tick()
     local now = gameNow()
     local dt = math.max(0, math.min(1, now - (run.last or now)))
     run.last = now
-    if run.started then
+    if run.started and run.hold then
+        -- (the timeline holds: Wait)
+        local h = run.hold
+        h.since = h.since + dt
+        local done
+        if h.till then
+            done = h.since >= h.till
+        else
+            done = true
+            for _, a in ipairs(h.cats or {}) do
+                local ok, walking = pcall(Stage.Walking, a)
+                if ok and walking then done = false end
+            end
+            if not done and h.since >= cfg.waitMax then
+                log("%s: waited %.0f s for %s - goes on", run.name, h.since, h.why)
+                done = true
+            end
+        end
+        if done then
+            if not h.till then log("%s: %s on their marks (%.1f s) - the timeline goes on", run.name, h.why, h.since) end
+            run.hold = nil
+        end
+    elseif run.started then
         run.t = run.t + dt
-        while run.beats[run.next] and run.beats[run.next].t <= run.t do
+        while not run.hold and run.beats[run.next] and run.beats[run.next].t <= run.t do
             local b = run.beats[run.next]
             run.next = run.next + 1
             local fn = ACTIONS[b.action]

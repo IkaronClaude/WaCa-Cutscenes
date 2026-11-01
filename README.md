@@ -61,6 +61,7 @@ Beat9 = 16 End
 | `Say: <who> = <line>` | the line on screen with the cat's name; `{PLAYER}` / `{P1}`, `{P2}` ... = those cats' names |
 | `Card: <text>` | a line on screen without a name |
 | `Camera: <shot> [= <who>]` | `Wide`, `High`, `Orbit [= <who>]`, `Portrait = <who>`, `Over = <who> > <who>`, `Two = <who> & <who>`, `Game` (the game's own camera); add `~<seconds>` to move there instead of cutting |
+| `Wait: <who>` / `Wait: <s>` | the timeline holds till those cats are on their marks (a walk-in takes what it takes - at most `WaitMax` s), or a pause |
 | `Fade: <s>` / `FadeIn: <s>` | to black / back |
 | `Emit: <event>` | another mod's code runs here |
 | `End` | over now (else 2 s after the last beat) |
