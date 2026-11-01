@@ -124,6 +124,7 @@ local function readCutscenes()
     cfg.putPlayerBack = (s.PutPlayerBack or "0") == "1"
     cfg.whereKey, cfg.previewKey, cfg.preview = trim(s.WhereKey), trim(s.PreviewKey), trim(s.Preview)
     cfg.skipKey = s.SkipKey ~= nil and trim(s.SkipKey) or "SpaceBar"
+    if cfg.skipKey ~= "" then cfg.skipKey = WaCa.ModKey("Cutscenes", "Skip", cfg.skipKey, "skip a cutscene") end
     defs = {}
     for section, sec in pairs(ini) do
         local name = type(sec) == "table" and section:match("^Cutscene%.(.+)$")
