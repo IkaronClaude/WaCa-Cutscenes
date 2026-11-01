@@ -12,7 +12,7 @@ local Camera = {}
 
 local WaCa, log, Stage, Cast
 local cfg = { fov = 60, wideBack = 700, wideUp = 300, highBack = 300, highUp = 1100, orbitRadius = 650, orbitUp = 260,
-              orbitSpeed = 9, portrait = 170, over = 130, twoMin = 280 }
+              orbitSpeed = 9, portrait = 170, over = 130, twoMin = 280, seenCheck = 1.0 }
 local cam, before                  -- the camera actor; the view target before the cutscene
 local shot                         -- { pose = fn() -> loc, look; from = {loc, rot}; blend; t }
 local scene                        -- { middle, forward (yaw) } of the cutscene playing
@@ -73,7 +73,10 @@ end
 -- from tick to tick would jump about. (A portrait's camera was pulled to 0.2 m from Lionstar's head - something stood
 -- between: VM 2026-10-30.)
 local shotTurn, shotRise
+-- (a shot whose cats weren't on screen after it settled: turned round further - Camera's seen check)
+local forcedTurn = nil
 local function bestAround(look, yaw, back, up, keep)
+    yaw = yaw + (forcedTurn or 0)
     if keep and shotTurn then
         return (clear(look, add(add(look, dirOf(yaw + shotTurn), -back), v(0, 0, 1), up + (shotRise or 0))))
     end
@@ -144,6 +147,7 @@ local function place(name, targets, t)
     return loc, look
 end
 
+local AROUND = { Wide = true, High = true, Portrait = true, Two = true }
 local function ease(x) return x < 0.5 and 2 * x * x or 1 - (-2 * x + 2) ^ 2 / 2 end
 local function lerpAngle(a, b, k)
     local d = (b - a + 540) % 360 - 180
@@ -164,6 +168,27 @@ local function apply(dt)
         rot = { pitch = lerpAngle(f.rot.pitch, rot.pitch, k), Yaw = lerpAngle(f.rot.Yaw, rot.Yaw, k), Roll = 0 }
     end
     pcall(function() cam:K2_SetActorLocationAndRotation(loc, rot, false, {}, true) end)
+    -- SEEN CHECK: a moment after the shot settles, is any of its cats on screen? Scenery the sight trace can't see
+    -- (a rock without collision on the Camera channel) hid both cats of a Two shot at the camp's river edge (VM
+    -- 2026-11-01, 'blocked' never logged) - then the shot turns round (90 deg, at most twice)
+    -- (the shots that look round for a clear way - Wide, High, Portrait, Two; Over / Orbit keep their geometry)
+    if cfg.seenCheck > 0 and AROUND[shot.name] and not shot.seen and #shot.targets > 0 and shot.t >= (shot.blend or 0) + cfg.seenCheck then
+        shot.seen = true
+        local any = false
+        for _, a in ipairs(shot.targets) do
+            local ok, r = pcall(function() return a:WasRecentlyRendered(cfg.seenCheck) end)
+            if not ok or r then any = true end
+        end
+        if not any and (shot.turns or 0) < 2 then
+            shot.turns = (shot.turns or 0) + 1
+            forcedTurn = (forcedTurn or 0) + 90
+            stillCache, shotTurn, shotRise = nil, nil, nil
+            shot.seen = false
+            shot.t = shot.blend or 0
+            log("camera: %s - its cats weren't on screen (something in the way the trace can't see?) - turned %d deg",
+                shot.name, forcedTurn)
+        end
+    end
 end
 
 function Camera.Begin(middle, forward)
@@ -181,7 +206,7 @@ function Camera.Shot(name, targets, blend)
         log("camera: the game's camera%s", (blend or 0) > 0 and string.format(" (%.1f s)", blend) or "")
         return
     end
-    stillCache, shotTurn, shotRise = nil, nil, nil
+    stillCache, shotTurn, shotRise, forcedTurn = nil, nil, nil, nil
     if not place(name, targets, 0) then
         log("camera: can't frame %s with %d cat(s) - the shot stays", tostring(name), #targets)
         return
