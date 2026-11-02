@@ -12,7 +12,7 @@ local Camera = {}
 
 local WaCa, log, Stage, Cast
 local cfg = { fov = 60, wideBack = 700, wideUp = 300, highBack = 300, highUp = 1100, orbitRadius = 650, orbitUp = 260,
-              orbitSpeed = 9, portrait = 170, over = 130, twoMin = 280, letterbox = 0, focus = 0 }
+              orbitSpeed = 9, portrait = 170, over = 130, twoMin = 280, letterbox = 0, focus = 0, catGap = 60 }
 local cam, before                  -- the camera actor; the view target before the cutscene
 local shot                         -- { pose = fn() -> loc, look; from = {loc, rot}; blend; t }
 local scene                        -- { middle, forward (yaw) } of the cutscene playing
@@ -60,10 +60,32 @@ end
 -- camera arm (the engine's Camera trace channel; the cast's cats don't count). A camera 9 m back in the camp's
 -- undergrowth showed only leaves (VM 2026-10-30).
 local kismet
+-- (A CAST CAT IN THE WAY - VM 2026-11-02: the cast's cats are left out of the trace, so a Portrait of Lionstar, who
+-- was looking at your cat, put the camera 45 cm from your cat - inside its fur: a screen of blurred grey. A cast cat
+-- other than what the shot looks at, closer than CatGap to the line between, blocks the way like a wall.)
+local function catInWay(look, loc, actors)
+    local sx, sy, sz = loc.X - look.X, loc.Y - look.Y, loc.Z - look.Z
+    local len2 = sx * sx + sy * sy + sz * sz
+    if len2 < 1 then return false end
+    for _, a in ipairs(actors) do
+        local ok, p = pcall(function() return a:K2_GetActorLocation() end)
+        if ok and p then
+            local px, py, pz = p.X - look.X, p.Y - look.Y, p.Z + 30 - look.Z
+            local fromLook = math.sqrt(px * px + py * py + pz * pz)
+            if fromLook > cfg.catGap then                -- (not what the shot looks at)
+                local t = math.max(0, math.min(1, (px * sx + py * sy + pz * sz) / len2))
+                local dx, dy, dz = px - sx * t, py - sy * t, pz - sz * t
+                if math.sqrt(dx * dx + dy * dy + dz * dz) < cfg.catGap then return true end
+            end
+        end
+    end
+    return false
+end
 local function clear(look, loc)
     kismet = kismet or StaticFindObject("/Script/Engine.Default__KismetSystemLibrary")
     local hit = {}
     local ignore = Stage.Actors()
+    if catInWay(look, loc, ignore) then return loc, 0 end
     local ok, blocked = pcall(function()
         return kismet:LineTraceSingle(Cast.Pawn(), look, loc, 1, true, ignore, 0, hit, true,
             { R = 0, G = 0, B = 0, A = 0 }, { R = 0, G = 0, B = 0, A = 0 }, 0)
@@ -83,6 +105,11 @@ end
 -- A shot that follows its cats keeps the direction it found first (shotTurn) - a camera hopping between directions
 -- from tick to tick would jump about. (A portrait's camera was pulled to 0.2 m from Lionstar's head - something stood
 -- between: VM 2026-10-30.)
+local CANDIDATES = {}                  -- { turn deg, rise cm }, by how far from the wanted shot (35 deg ~ 100 cm)
+for _, off in ipairs({ 0, 35, -35, 70, -70, 110, -110 }) do
+    for _, rise in ipairs({ 0, 150, 300 }) do CANDIDATES[#CANDIDATES + 1] = { off, rise, math.abs(off) / 35 + rise / 100 } end
+end
+table.sort(CANDIDATES, function(a, b) if a[3] ~= b[3] then return a[3] < b[3] end return a[1] > b[1] end)
 local shotTurn, shotRise
 local orbitPhase, orbitLast            -- (an orbit's start turn - its first open direction - and its last good spot)
 local function bestAround(look, yaw, back, up, keep)
@@ -91,15 +118,16 @@ local function bestAround(look, yaw, back, up, keep)
     end
     -- (each direction also a little higher - rising over the roots / the bank beats pulling in to 1.7 m: follow-up (a),
     -- VM 2026-10-30 riverbank; a shot's own height first, then its own direction)
+    -- (the candidates nearest the wanted shot first - a 35 deg turn before a 1.5 m rise: going up every height in the
+    -- wanted direction first made a Portrait blocked by a cat in front a 3 m bird's-eye shot through the branches, VM
+    -- 2026-11-02)
     local best, bestK, bestOff, bestRise
-    for _, off in ipairs({ 0, 35, -35, 70, -70, 110, -110 }) do
-        for _, rise in ipairs({ 0, 150, 300 }) do
-            local want = add(add(look, dirOf(yaw + off), -back), v(0, 0, 1), up + rise)
-            local loc, k = clear(look, want)
-            if k >= 0.9 then best, bestK, bestOff, bestRise = loc, k, off, rise break end
-            if not bestK or k > bestK + 0.05 then best, bestK, bestOff, bestRise = loc, k, off, rise end
-        end
-        if bestK and bestK >= 0.9 then break end
+    for _, c in ipairs(CANDIDATES) do
+        local off, rise = c[1], c[2]
+        local want = add(add(look, dirOf(yaw + off), -back), v(0, 0, 1), up + rise)
+        local loc, k = clear(look, want)
+        if k >= 0.9 then best, bestK, bestOff, bestRise = loc, k, off, rise break end
+        if not bestK or k > bestK + 0.05 then best, bestK, bestOff, bestRise = loc, k, off, rise end
     end
     if bestOff ~= 0 or bestRise ~= 0 or bestK < 0.9 then
         log("camera: the shot's way was blocked - turned %d deg, %d cm higher, %.0f%% of its distance clear", bestOff,
