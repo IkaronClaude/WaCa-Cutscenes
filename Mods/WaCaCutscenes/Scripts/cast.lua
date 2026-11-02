@@ -323,7 +323,7 @@ function Cast.Fill(specs)
                 if not rogueName then
                     local names = {}
                     pcall(function()
-                        FindFirstOf("WrcNPCGenerationManager").RemainingRogueNames:ForEach(function(_, e)
+                        (WaCa.Live(FindFirstOf("WrcNPCGenerationManager")) or error("no NPC generation manager")).RemainingRogueNames:ForEach(function(_, e)
                             local r = e:get()
                             local t = WaCa.GetText(r.PrefixID:ToString())
                             if t == "" or t:find("^STR_") then t = r.Name:ToString() end

@@ -182,7 +182,7 @@ function Scenes.Init(c)
     WaCa.On("CatLookPart", function(comp)
         if dressing or not current or queued then return end
         local ok, isStandIn = pcall(function()
-            return comp:GetOwner():IsA(StaticFindObject("/Script/Wrc.WrcCatSkeletalMeshWithCustomization"))
+            return (WaCa.Live(comp:GetOwner()) or error("no owner")):IsA(StaticFindObject("/Script/Wrc.WrcCatSkeletalMeshWithCustomization"))
         end)
         if ok and isStandIn then soon("the game dressed the scene's cats") end
     end)
@@ -194,7 +194,7 @@ function Scenes.Init(c)
     local function active(tag)
         local found = false
         pcall(function()
-            FindFirstOf("SwtQuestSequencerManager").ActiveSequences:ForEach(function(k)
+            (WaCa.Live(FindFirstOf("SwtQuestSequencerManager")) or error("no sequencer manager")).ActiveSequences:ForEach(function(k)
                 if k:get().TagName:ToString() == tag then found = true end
             end)
         end)
