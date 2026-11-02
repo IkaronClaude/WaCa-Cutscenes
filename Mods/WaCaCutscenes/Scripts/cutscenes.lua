@@ -28,6 +28,11 @@
 --   Fade: <seconds> / FadeIn: <seconds>
 --   Emit: <event>                another mod's code runs here (WaCa.Emit)
 --   Wait: <who> / <seconds>      the timeline holds till those cats are on their marks (WaitMax), or a pause
+--   Ask: <var> = <question>; <answer 1>; <answer 2> ...   the player answers (WaCa Clan Life's Choice: number keys);
+--                                the timeline holds till then (AskMax s at most); the story variable gets the number
+--   [<var> = <value>] before an action: that beat plays only if it holds ("Beat7 = 10 [Shelter = 1] Say: A2 = ...";
+--                                = != < > <= >=, several joined by ","). The variables: those set while Cutscenes
+--                                runs (an Ask, a Set: beat, any story step), and a scene's own Set: beats.
 --   End                          the cutscene is over (else 2 s after the last beat)
 -- While one plays: your keys and the HUD are off, the cast's cats are held; at the end the cats go back where they
 -- were, the game's camera comes back. Events for other mods: PlayCutscene(name) plays one (queued if one is on);
@@ -37,7 +42,8 @@ local Cutscenes = {}
 local WaCa, log, modDir
 local Cast, Stage, Camera, Scenes
 local CARD = "/Game/Art/UXD/Blueprints/Popups/WBP_GuiPopupCenterMessage.WBP_GuiPopupCenterMessage_C"
-local cfg = { on = true, ahead = 250, walkFrom = 600, fade = 0.6, maxSeconds = 180, endAfter = 2, hideHud = true, waitMax = 20,
+local storyVars = {}                -- story variables seen (WaCa Clan Life's StoryVar event) - beat guards read them
+local cfg = { askMax = 300, on = true, ahead = 250, walkFrom = 600, fade = 0.6, maxSeconds = 180, endAfter = 2, hideHud = true, waitMax = 20,
               enclosedAt = 150,
               putPlayerBack = false, sayBase = 2, sayPerChar = 0.07, lineOffset = 380, farAway = 8000, farWait = 4 }
 local defs, shapes, places = {}, {}, {}
@@ -105,8 +111,11 @@ local function readPlaces()
     end
 end
 
--- a beat: "<seconds> <Action>[: <who> [= <what>]]"
+-- a beat: "<seconds> [<guard>] <Action>[: <who> [= <what>]]"
 local function parseBeat(text)
+    local guard
+    local t0, g, after = tostring(text):match("^%s*([%d%.]+)%s+%[(.-)%]%s*(.*)$")
+    if t0 then text, guard = t0 .. " " .. after, trim(g) end
     local t, action, rest = tostring(text):match("^%s*([%d%.]+)%s+(%a+)%s*:?%s*(.-)%s*$")
     if not t then return nil end
     local blend
@@ -114,7 +123,26 @@ local function parseBeat(text)
     if body then rest, blend = body, tonumber(b) end
     local who, what = rest:match("^(.-)%s*=%s*(.-)$")
     if not who then who, what = rest, nil end
-    return { t = tonumber(t), action = action, who = trim(who), what = what and trim(what) or nil, blend = blend }
+    return { t = tonumber(t), action = action, who = trim(who), what = what and trim(what) or nil, blend = blend,
+             guard = guard }
+end
+
+-- a beat's guard: "Var op value, ..." against the story variables seen - all must hold (a variable never seen = nil)
+local OPS = {
+    ["="] = function(a, b) return a == b end, ["!="] = function(a, b) return a ~= b end,
+    ["<"] = function(a, b) return a ~= nil and a < b end, ["<="] = function(a, b) return a ~= nil and a <= b end,
+    [">"] = function(a, b) return a ~= nil and a > b end, [">="] = function(a, b) return a ~= nil and a >= b end,
+}
+local function guardHolds(text)
+    for cond in tostring(text or ""):gmatch("[^,]+") do
+        local name, op, value = cond:match("^%s*([%w%.%_]+)%s*([<>=!]+)%s*(.-)%s*$")
+        if not (name and OPS[op]) then return false end
+        local have, want = storyVars[name], tonumber(value) or value
+        if type(have) ~= type(want) and (op ~= "=" and op ~= "!=") then return false end
+        local ok, r = pcall(OPS[op], have, want)
+        if not (ok and r) then return false end
+    end
+    return true
 end
 
 local function readCutscenes()
@@ -126,6 +154,7 @@ local function readCutscenes()
     cfg.walkSpeed = tonumber(s.WalkSpeed or "")
     cfg.maxSeconds = tonumber(s.MaxSeconds or "") or cfg.maxSeconds
     cfg.waitMax = tonumber(s.WaitMax or "") or cfg.waitMax
+    cfg.askMax = tonumber(s.AskMax or "") or cfg.askMax
     cfg.enclosedAt = tonumber(s.EnclosedAt or "") or cfg.enclosedAt
     cfg.hideHud = (s.HideHud or "1") ~= "0"
     cfg.lineOffset = tonumber(s.LineOffset or "") or cfg.lineOffset
@@ -603,14 +632,16 @@ local function showCard(text, till)
     if not ok then log("can't show the card \"%s\" (%s)", text, tostring(err)) end
 end
 
--- (each tick: lines and cards whose time is up go)
+-- (each tick: lines and cards whose time is up go - by run.shown, the screen's clock, which runs on while the
+-- timeline holds: a line said before a Wait: / Ask: stayed up the whole hold, over the question - VM 2026-11-02)
 local function expireLines(run)
-    if run.lineTill and run.t >= run.lineTill then
+    run.shown = run.shown or 0
+    if run.lineTill and run.shown >= run.lineTill then
         run.lineTill = nil
         hideLine()
     end
     for i = #cards, 1, -1 do
-        if run.t >= cards[i].till then
+        if run.shown >= cards[i].till then
             local w = StaticFindObject(cards[i].path)
             if w and w:IsValid() then pcall(function() w:RemoveFromParent() end) end
             table.remove(cards, i)
@@ -734,12 +765,12 @@ function ACTIONS.Say(run, b)
     if not a then return log("%s: %s isn't cast - its line is left out", run.name, b.who) end
     local name = nameOf(run, a)
     log("%s: %s says \"%s\"", run.name, name, line)
-    if showLine(name .. ": " .. line) then run.lineTill = run.t + sayFor(line) end
+    if showLine(name .. ": " .. line) then run.lineTill = (run.shown or 0) + sayFor(line) end
 end
 
 function ACTIONS.Card(run, b)
     local text = fillNames(run, b.what and (b.who .. " = " .. b.what) or b.who)
-    showCard(text, run.t + sayFor(text))
+    showCard(text, (run.shown or 0) + sayFor(text))
 end
 
 function ACTIONS.Camera(run, b)
@@ -757,9 +788,23 @@ end
 -- remember what happened in it: Set: SawEnvoy = 1)
 function ACTIONS.Set(run, b)
     if not (b.who and b.who ~= "" and b.what) then log("%s: Set needs <variable> = <value>", run.name) return end
+    storyVars[b.who] = tonumber(b.what) or b.what
     WaCa.Emit("SetStoryVar", b.who, tonumber(b.what) or b.what)
 end
 function ACTIONS.End(run) run.ending = "its End beat" end
+
+-- Ask: <var> = <question>; <answers> - library exercise 2026-11-02 (a cutscene couldn't ask the player anything, nor
+-- go two ways): WaCa Clan Life's Choice asks (PlayScene); the timeline holds till the variable changes.
+function ACTIONS.Ask(run, b)
+    local var = trim(b.who)
+    if var == "" or not b.what then return log("%s: Ask needs <variable> = <question>; <answer>; <answer>", run.name) end
+    storyVars[var] = nil
+    run.lineTill = nil
+    hideLine()                                     -- (the question takes the line's place)
+    run.hold = { ask = var, before = nil, since = 0, why = "the answer to " .. var }
+    WaCa.Emit("PlayScene", "Choice: " .. var .. " = " .. b.what)
+    log("%s: asks %s - %s", run.name, var, b.what)
+end
 
 -- Wait: <who> - the timeline holds till those cats are on their marks (a walk takes what it takes: a writer can't
 -- know how far out a cat starts, or the game's speed - library exercise 2026-11-01, a line said before its speaker
@@ -784,12 +829,22 @@ local function tick()
     local now = gameNow()
     local dt = math.max(0, math.min(1, now - (run.last or now)))
     run.last = now
+    if run.started then run.shown = (run.shown or 0) + dt end
     if run.started and run.hold then
         -- (the timeline holds: Wait)
         local h = run.hold
         h.since = h.since + dt
         local done
-        if h.till then
+        if h.ask then
+            done = storyVars[h.ask] ~= nil and storyVars[h.ask] ~= h.before
+            if not done and h.since >= cfg.askMax then
+                log("%s: no answer to %s in %.0f s (is WaCa Clan Life on?) - goes on", run.name, h.ask, h.since)
+                done = true
+            end
+            if done and storyVars[h.ask] ~= h.before then
+                log("%s: %s answered %s - the timeline goes on", run.name, h.ask, tostring(storyVars[h.ask]))
+            end
+        elseif h.till then
             done = h.since >= h.till
         else
             done = true
@@ -803,7 +858,7 @@ local function tick()
             end
         end
         if done then
-            if not h.till then log("%s: %s on their marks (%.1f s) - the timeline goes on", run.name, h.why, h.since) end
+            if not h.till and not h.ask then log("%s: %s on their marks (%.1f s) - the timeline goes on", run.name, h.why, h.since) end
             run.hold = nil
         end
     elseif run.started then
@@ -812,7 +867,9 @@ local function tick()
             local b = run.beats[run.next]
             run.next = run.next + 1
             local fn = ACTIONS[b.action]
-            if fn then
+            if b.guard and not guardHolds(b.guard) then
+                log("%s: beat at %.1f s (%s) skipped - [%s] doesn't hold", run.name, b.t, b.action, b.guard)
+            elseif fn then
                 local ok, err = pcall(fn, run, b)
                 if not ok then log("%s: beat at %.1f s (%s) failed - %s", run.name, b.t, b.action, tostring(err)) end
             else
@@ -1103,6 +1160,7 @@ function Cutscenes.Init(c)
             end)
         end)
     end)
+    WaCa.On("StoryVar", function(name, value) if name then storyVars[tostring(name)] = value end end)
     WaCa.On("PlayCutscene", function(name)
         ExecuteInGameThread(function()
             local ok, err = pcall(Cutscenes.Play, trim(name))

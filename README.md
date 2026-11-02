@@ -63,6 +63,8 @@ Beat9 = 16 End
 | `Card: <text>` | a line on screen without a name |
 | `Camera: <shot> [= <who>]` | `Wide`, `High`, `Orbit [= <who>]`, `Portrait = <who>`, `Over = <who> > <who>`, `Two = <who> & <who>`, `Game` (the game's own camera); add `~<seconds>` to move there instead of cutting |
 | `Wait: <who>` / `Wait: <s>` | the timeline holds till those cats are on their marks (a walk-in takes what it takes - at most `WaitMax` s), or a pause |
+| `Ask: <var> = <question>; <answer 1>; <answer 2> ...` | the player answers (WaCa Clan Life's Choice - number keys 1-4); the timeline holds till then (`AskMax` s at most); the story variable gets the answer's number |
+| `[<var> = <value>]` before an action | that beat plays only when it holds: `Beat9 = 16 [Shelter = 1] Say: A1 = ...` (`= != < > <= >=`, several joined by `,`) - one scene, two ways after an `Ask:` |
 | `Fade: <s>` / `FadeIn: <s>` | to black / back |
 | `Emit: <event>` / `Emit: <event> = <value>` | another mod's code runs here (with a value: `Emit: SetSpecialisation = Herbalist`) |
 | `Set: <variable> = <value>` | sets a WaCa Clan Life story variable at that moment (`Set: SawEnvoy = 1` - the story remembers the scene) |
