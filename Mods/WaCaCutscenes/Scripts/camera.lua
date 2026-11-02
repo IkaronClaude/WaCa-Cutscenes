@@ -12,7 +12,7 @@ local Camera = {}
 
 local WaCa, log, Stage, Cast
 local cfg = { fov = 60, wideBack = 700, wideUp = 300, highBack = 300, highUp = 1100, orbitRadius = 650, orbitUp = 260,
-              orbitSpeed = 9, portrait = 170, over = 130, twoMin = 280 }
+              orbitSpeed = 9, portrait = 170, over = 130, twoMin = 280, letterbox = 0, focus = 0 }
 local cam, before                  -- the camera actor; the view target before the cutscene
 local shot                         -- { pose = fn() -> loc, look; from = {loc, rot}; blend; t }
 local scene                        -- { middle, forward (yaw) } of the cutscene playing
@@ -39,7 +39,18 @@ local function spawn()
     pcall(function()
         local c = a.CameraComponent
         c.FieldOfView = cfg.fov
-        c.bConstrainAspectRatio = false
+        -- (A FILM'S LOOK - [Camera] Letterbox / Focus, library exercise 2026-11-02, off by default: black bars at that
+        -- aspect ratio - the engine's own constrained aspect - and depth of field at that f-stop, the focus kept on
+        -- what each shot looks at)
+        c.bConstrainAspectRatio = (cfg.letterbox or 0) > 0
+        if (cfg.letterbox or 0) > 0 then c.AspectRatio = cfg.letterbox end
+        if (cfg.focus or 0) > 0 then
+            local pp = c.PostProcessSettings
+            pp.bOverride_DepthOfFieldFstop = true
+            pp.DepthOfFieldFstop = cfg.focus
+            pp.bOverride_DepthOfFieldFocalDistance = true
+            c.PostProcessBlendWeight = 1.0
+        end
     end)
     cam = a
     return a
@@ -194,6 +205,12 @@ local function apply(dt)
         rot = { pitch = lerpAngle(f.rot.pitch, rot.pitch, k), Yaw = lerpAngle(f.rot.Yaw, rot.Yaw, k), Roll = 0 }
     end
     pcall(function() cam:K2_SetActorLocationAndRotation(loc, rot, false, {}, true) end)
+    if (cfg.focus or 0) > 0 then
+        pcall(function()
+            cam.CameraComponent.PostProcessSettings.DepthOfFieldFocalDistance =
+                math.sqrt((look.X - loc.X) ^ 2 + (look.Y - loc.Y) ^ 2 + (look.Z - loc.Z) ^ 2)
+        end)
+    end
 end
 
 function Camera.Begin(middle, forward)

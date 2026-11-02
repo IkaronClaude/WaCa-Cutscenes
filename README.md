@@ -71,6 +71,9 @@ While a cutscene plays your keys and the HUD are off (SkipKey - `SpaceBar` by de
 `WaCa.Emit("SkipCutscene")` from a mod); at the end the cats go back where they were and the game's
 camera comes back (your cat stays where the cutscene left it - `PutPlayerBack = 1` changes that).
 
+**A film's look** (`cutscenes.ini [Camera]`, off by default): `Letterbox = 2.39` frames every cutscene at that aspect
+ratio with black bars; `Focus = 2.8` adds depth of field at that f-stop, the focus kept on what each shot looks at.
+
 ### The game's own scenes, with your cast
 A cutscene can instead play one of the game's own cinematics - placed, framed and animated the game's way - with its
 cats dressed as the cats you name:
