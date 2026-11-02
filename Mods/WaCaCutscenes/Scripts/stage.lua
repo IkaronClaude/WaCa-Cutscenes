@@ -321,6 +321,40 @@ function Stage.Release(putPlayerBack)
     return n
 end
 
+-- (for a reload in mid-scene: who was taken from where - cutscenes.lua keeps it in a file - and putting them back from
+-- that list after the reload, as Release would have)
+function Stage.Snapshot()
+    local out = {}
+    for path, e in pairs(actors) do
+        if e.from and e.from.loc then
+            out[#out + 1] = { path = path, x = e.from.loc.X, y = e.from.loc.Y, z = e.from.loc.Z,
+                              yaw = e.from.rot and e.from.rot.Yaw or 0, kind = e.kind or "", hidden = e.hidden and true or false }
+        end
+    end
+    return out
+end
+function Stage.RestoreFrom(list)
+    local n = 0
+    for _, e in ipairs(list or {}) do
+        local a = StaticFindObject(e.path)
+        if a and a:IsValid() then
+            if e.kind == "spawned" then
+                WaCa.Despawn(a)
+            else
+                pcall(function() Stage.Pose(a, "Stop") end)
+                if e.kind ~= "player" then
+                    pcall(function() playWalk(a, false) end)
+                    pcall(function() a:K2_SetActorLocationAndRotation({ X = e.x, Y = e.y, Z = e.z }, { pitch = 0, Yaw = e.yaw, Roll = 0 }, false, {}, true) end)
+                end
+                if e.kind == "walker" then pcall(function() holdAI(a, false) end) end
+                if e.hidden then pcall(function() a.SkeletalMeshComponent:SetVisibility(false, true) end) end
+            end
+            n = n + 1
+        end
+    end
+    return n
+end
+
 function Stage.Init(c)
     WaCa, log, Cast = c.WaCa, c.log, c.Cast
     cfg.speed = c.walkSpeed or cfg.speed

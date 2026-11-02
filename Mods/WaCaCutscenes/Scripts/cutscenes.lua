@@ -41,6 +41,7 @@ local cfg = { on = true, ahead = 250, walkFrom = 600, fade = 0.6, maxSeconds = 1
               enclosedAt = 150,
               putPlayerBack = false, sayBase = 2, sayPerChar = 0.07, lineOffset = 380, farAway = 8000, farWait = 4 }
 local defs, shapes, places = {}, {}, {}
+local keepRunning, clearRunning        -- (a reload in mid-scene - below)
 local ACTIONS = {}                     -- (the beats' actions - below; the check reads it too)
 local farFrom = {}                  -- a cutscene waiting for its far place to load -> where your cat was
 local playing                       -- the cutscene on now
@@ -232,6 +233,60 @@ function Cutscenes.Check()
         WaCa.Emit("ShowLine", string.format("WaCa Cutscenes: %d problem(s) in the cutscene files - see UE4SS.log (cutscene check)", #problems))
     end
     return problems
+end
+
+-- A RELOAD IN MID-SCENE (VM 2026-11-02: WaCa Cutscenes reloaded while a cutscene played - the new copy knew nothing
+-- of it: the view stayed on the old scene's camera for good (later scenes even gave the view back to it), the cats
+-- stayed on their marks, the other mods waited for a CutsceneEnded that never came. The story check's Watch = 1 reloads
+-- this mod whenever a writer saves a story file.) While a scene plays, what it changed is kept in
+-- Saved/WaCaCutsceneRunning.ini - its camera, the HUD, the cats' places; starting again with that file there, the mod
+-- puts it all back and sends CutsceneEnded(name, "a reload").
+local function runningPath() return WaCa.SaveDir() .. "/../WaCaCutsceneRunning.ini" end
+keepRunning = function(run)
+    local cats = {}
+    for i, e in ipairs(Stage.Snapshot()) do
+        cats["c" .. i] = string.format("%s|%.1f %.1f %.1f %.1f|%s|%s", e.path, e.x, e.y, e.z, e.yaw, e.kind, e.hidden and "1" or "0")
+    end
+    WaCa.WriteIni(runningPath(), { Run = { Name = run.name, Camera = Camera.Path() or "", Hud = hud or "",
+        HudWas = tostring(run.hudWas or ""), __order = { "Name", "Camera", "Hud", "HudWas" } }, Cats = cats,
+        __order = { "Run", "Cats" } }, "; WaCa Cutscenes - a cutscene is playing (put back if the mod reloads mid-scene)")
+end
+clearRunning = function()
+    WaCa.WriteIni(runningPath(), { Run = { __order = {} }, __order = { "Run" } }, "; WaCa Cutscenes - no cutscene playing")
+end
+local function recoverRunning()
+    local ini = WaCa.ReadIni(runningPath()) or {}
+    local r = ini["Run"] or {}
+    if (r.Name or "") == "" then return end
+    local list = {}
+    for k, v in pairs(ini["Cats"] or {}) do
+        local path, x, y, z, yaw, kind, hidden = tostring(v):match("^(.-)|(%S+) (%S+) (%S+) (%S+)|(.-)|(%d)$")
+        if k ~= "__order" and path then
+            list[#list + 1] = { path = path, x = tonumber(x), y = tonumber(y), z = tonumber(z), yaw = tonumber(yaw),
+                                kind = kind, hidden = hidden == "1" }
+        end
+    end
+    local n = Stage.RestoreFrom(list)
+    local pc, pawn = Cast.Controller(), Cast.Pawn()
+    -- (the view back to the game's own camera actor - the pawn only when there's none)
+    pcall(function()
+        local gameCam
+        for _, c in ipairs(FindAllOf("BP_AdventureCamera_C") or {}) do if c:IsValid() then gameCam = c end end
+        pc:SetViewTargetWithBlend(gameCam or pawn, 0, 0, 0, false)
+    end)
+    pcall(function() local c = (r.Camera or "") ~= "" and StaticFindObject(r.Camera) if c and c:IsValid() then c:K2_DestroyActor() end end)
+    pcall(function()
+        local o = (r.Hud or "") ~= "" and StaticFindObject(r.Hud)
+        -- (a HUD that was collapsed when this scene began was another stuck scene's doing: shown - 4 - all the same)
+        local was = tonumber(r.HudWas or "")
+        if o and o:IsValid() then o:SetVisibility((was and was ~= 1) and was or 4) end
+    end)
+    -- (the engine counts ignore requests - a scene stuck before this one added its own: cleared, not counted down)
+    pcall(function() pc:ResetIgnoreMoveInput() pc:ResetIgnoreLookInput() end)
+    pcall(function() pc.PlayerCameraManager:StopCameraFade() end)
+    clearRunning()
+    log("%s: was playing when this mod reloaded - put back (%d cat(s), the view, the HUD, your keys)", r.Name, n)
+    pcall(WaCa.Emit, "CutsceneEnded", r.Name, "a reload")
 end
 
 -- --- the place and the marks ---
@@ -753,6 +808,7 @@ local function tick()
     pcall(Stage.Tick, dt)
     Camera.Tick(dt)
     pcall(expireLines, run)
+    if not run.recorded and Camera.Path() then run.recorded = true pcall(keepRunning, run) end
     if run.ending then return finish(run.ending) end
     ExecuteInGameThreadWithDelay(50, tick)
 end
@@ -776,6 +832,7 @@ finish = function(why)
         fade(1, 0, cfg.fade)
         log("%s: over (%s, %.1f s) - %d cat(s) back in their places", run.name, why, run.t, n)
         playing = nil
+        pcall(clearRunning)
         pcall(WaCa.Emit, "CutsceneEnded", run.name, why)
         pcall(WaCa.Publish, "cutscene", { playing = false, name = run.name }, true)
         local nextName = table.remove(queue, 1)
@@ -964,6 +1021,8 @@ function Cutscenes.Init(c)
     table.sort(names)
     table.sort(shapeNames)
     pcall(Cutscenes.Check)
+    -- (a reload with the world up: a scene the copy before was playing is put back)
+    ExecuteInGameThreadWithDelay(1500, function() if WaCa.CurrentSlot() then pcall(recoverRunning) end end)
     log("%s - %d cutscene(s): %s; shapes: %s", cfg.on and "on" or "off (cutscenes.ini On = 0)", #names,
         table.concat(names, ", "), table.concat(shapeNames, ", "))
     -- (for other mods - WaCa Clan Life's story check: every Cutscene: step names one of these)

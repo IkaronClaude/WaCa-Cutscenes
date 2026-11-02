@@ -282,6 +282,8 @@ function Camera.End()
     cam, before = nil, nil
 end
 
+function Camera.Path() return cam and cam:IsValid() and (cam:GetFullName():gsub("^%S+ ", "")) or nil end
+
 function Camera.Init(c)
     WaCa, log, Stage, Cast = c.WaCa, c.log, c.Stage, c.Cast
     for k, val in pairs(c.camera or {}) do if cfg[k] ~= nil then cfg[k] = tonumber(val) or cfg[k] end end
