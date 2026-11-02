@@ -1081,8 +1081,15 @@ function Cutscenes.Init(c)
             if not showLine(tostring(text)) then return end
             log("line: %s", tostring(text))
             local t = tonumber(seconds) or sayFor(tostring(text))
+            -- (gone for good, not just hidden: the line is the game's centre-message POPUP - left hidden on screen it kept
+            -- taking the menu keys, and Esc could no longer close the pause menu: VM 2026-11-02, 'COMMAND 89 on
+            -- WBP_GuiPopupCenterMessage_C' with the pause screen up. A cutscene's own lines are removed at its end.)
             ExecuteInGameThreadWithDelay(math.floor(t * 1000), function()
-                if gen == lineGen and not playing then hideLine() end
+                if gen == lineGen and not playing then
+                    local o = subtitle and StaticFindObject(subtitle)
+                    if o and o:IsValid() then pcall(function() o:RemoveFromParent() end) end
+                    subtitle = nil
+                end
             end)
         end)
     end)
