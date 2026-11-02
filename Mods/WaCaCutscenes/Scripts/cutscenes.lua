@@ -748,7 +748,17 @@ end
 
 function ACTIONS.Fade(run, b) fade(0, 1, tonumber(b.who) or 1) end
 function ACTIONS.FadeIn(run, b) fade(1, 0, tonumber(b.who) or 1) end
-function ACTIONS.Emit(run, b) WaCa.Emit(b.who, run.name) end
+-- (Emit: <event> = <value> hands the value over first, as WaCa Clan Life's step does - library exercise 2026-11-02;
+-- without one the cutscene's name, as before)
+function ACTIONS.Emit(run, b)
+    if b.what and b.what ~= "" then WaCa.Emit(b.who, b.what, run.name) else WaCa.Emit(b.who, run.name) end
+end
+-- Set: <story variable> = <value> - WaCa Clan Life's story variables, set at that moment of the scene (a scene can
+-- remember what happened in it: Set: SawEnvoy = 1)
+function ACTIONS.Set(run, b)
+    if not (b.who and b.who ~= "" and b.what) then log("%s: Set needs <variable> = <value>", run.name) return end
+    WaCa.Emit("SetStoryVar", b.who, tonumber(b.what) or b.what)
+end
 function ACTIONS.End(run) run.ending = "its End beat" end
 
 -- Wait: <who> - the timeline holds till those cats are on their marks (a walk takes what it takes: a writer can't

@@ -64,7 +64,8 @@ Beat9 = 16 End
 | `Camera: <shot> [= <who>]` | `Wide`, `High`, `Orbit [= <who>]`, `Portrait = <who>`, `Over = <who> > <who>`, `Two = <who> & <who>`, `Game` (the game's own camera); add `~<seconds>` to move there instead of cutting |
 | `Wait: <who>` / `Wait: <s>` | the timeline holds till those cats are on their marks (a walk-in takes what it takes - at most `WaitMax` s), or a pause |
 | `Fade: <s>` / `FadeIn: <s>` | to black / back |
-| `Emit: <event>` | another mod's code runs here |
+| `Emit: <event>` / `Emit: <event> = <value>` | another mod's code runs here (with a value: `Emit: SetSpecialisation = Herbalist`) |
+| `Set: <variable> = <value>` | sets a WaCa Clan Life story variable at that moment (`Set: SawEnvoy = 1` - the story remembers the scene) |
 | `End` | over now (else 2 s after the last beat) |
 
 While a cutscene plays your keys and the HUD are off (SkipKey - `SpaceBar` by default - skips it;
