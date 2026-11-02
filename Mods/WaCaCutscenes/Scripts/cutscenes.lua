@@ -41,6 +41,7 @@ local cfg = { on = true, ahead = 250, walkFrom = 600, fade = 0.6, maxSeconds = 1
               enclosedAt = 150,
               putPlayerBack = false, sayBase = 2, sayPerChar = 0.07, lineOffset = 380, farAway = 8000, farWait = 4 }
 local defs, shapes, places = {}, {}, {}
+local ACTIONS = {}                     -- (the beats' actions - below; the check reads it too)
 local farFrom = {}                  -- a cutscene waiting for its far place to load -> where your cat was
 local playing                       -- the cutscene on now
 local queue = {}
@@ -171,6 +172,66 @@ local function readCutscenes()
         end
     end
     return ini["Camera"] or {}
+end
+
+-- CHECKED WHEN READ (library exercise 2026-11-02: a cutscene with Place = ReedBnak, Shape = Vigl, A = Leadr and
+-- Camra: Wide loaded without a word - in play the place fell back to "here", the beat did nothing): every cutscene's
+-- place, shape, cast and beats are checked against what exists; each problem logged ("cutscene check: ..."), a count
+-- on screen. A cast name that isn't a part may be a cat's own name - only one a letter or two off a part is flagged.
+local SHOTS = { Wide = true, High = true, Orbit = true, Portrait = true, Over = true, Two = true, Game = true }
+local CASTPARTS = { "Player", "Leader", "Deputy", "MedicineCat", "Queen", "Kit", "Elder", "Apprentice", "Warrior",
+                    "Mentor", "Nearest", "Rogue" }
+local function near(a, b)              -- (edit distance <= 2, short words: a typo)
+    a, b = a:lower(), b:lower()
+    if math.abs(#a - #b) > 2 then return false end
+    local prev = {}
+    for j = 0, #b do prev[j] = j end
+    for i = 1, #a do
+        local cur = { [0] = i }
+        for j = 1, #b do
+            cur[j] = math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + ((a:sub(i, i) == b:sub(j, j)) and 0 or 1))
+        end
+        prev = cur
+    end
+    return prev[#b] <= 2
+end
+function Cutscenes.Check()
+    local problems = {}
+    local function problem(d, fmt, ...) problems[#problems + 1] = d.name .. ": " .. string.format(fmt, ...) end
+    for _, d in pairs(defs) do
+        if not d.scene then
+            local pl = d.place
+            if not (pl == "Here" or pl == "Pile" or pl:match("^Zone:") or places[pl] or pl:match("^[%-%d%.]+[%s,]+[%-%d%.]+[%s,]+[%-%d%.]+")) then
+                problem(d, "no place '%s' (Here, Pile, Zone:<code>, X Y Z, or a places.ini [Place.<Name>])", pl)
+            end
+            if not shapes[d.shape] then problem(d, "no shape '%s'", d.shape) end
+            for g, list in pairs(d.groups) do
+                for i, spec in ipairs(list) do
+                    local isPart = false
+                    for _, p in ipairs(CASTPARTS) do if spec == p then isPart = true end end
+                    if not isPart and not spec:match("^[ESR]%a*:") and not spec:match("^Clan:") then
+                        for _, p in ipairs(CASTPARTS) do
+                            if near(spec, p) then problem(d, "%s%d = %s - did you mean %s?", g, i, spec, p) break end
+                        end
+                    end
+                end
+            end
+            for _, b in ipairs(d.beats) do
+                if not ACTIONS[b.action] then
+                    problem(d, "Beat%d: no action '%s'", b.n, b.action)
+                elseif b.action == "Camera" then
+                    local shot = (b.who or ""):match("^(%a+)")
+                    if shot and not SHOTS[shot] then problem(d, "Beat%d: no camera shot '%s'", b.n, shot) end
+                end
+            end
+        end
+    end
+    table.sort(problems)
+    for _, p in ipairs(problems) do log("cutscene check: %s", p) end
+    if #problems > 0 then
+        WaCa.Emit("ShowLine", string.format("WaCa Cutscenes: %d problem(s) in the cutscene files - see UE4SS.log (cutscene check)", #problems))
+    end
+    return problems
 end
 
 -- --- the place and the marks ---
@@ -550,7 +611,6 @@ end
 
 local function sayFor(text) return cfg.sayBase + #text * cfg.sayPerChar end
 
-local ACTIONS = {}
 
 function ACTIONS.WalkIn(run, b)
     for _, a in ipairs(resolveWho(b.who, run)) do
@@ -903,6 +963,7 @@ function Cutscenes.Init(c)
     for n in pairs(shapes) do shapeNames[#shapeNames + 1] = n end
     table.sort(names)
     table.sort(shapeNames)
+    pcall(Cutscenes.Check)
     log("%s - %d cutscene(s): %s; shapes: %s", cfg.on and "on" or "off (cutscenes.ini On = 0)", #names,
         table.concat(names, ", "), table.concat(shapeNames, ", "))
     -- (for other mods - WaCa Clan Life's story check: every Cutscene: step names one of these)

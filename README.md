@@ -89,7 +89,9 @@ plays your cat. Only the scene plays: nobody's rank changes. The game's own
 HOLD SKIP skips it.
 
 **Writing one:** set `PreviewKey` (and `Preview = <your cutscene>`) in `cutscenes.ini` to play it with a key, and
-`WhereKey` to log where your cat stands as a ready `places.ini` line.
+`WhereKey` to log where your cat stands as a ready `places.ini` line. Every cutscene is checked when it is read: a
+place, shape, beat action or camera shot that doesn't exist, or a cast part one letter off (`Leadr` - "did you mean
+Leader?"), is listed in UE4SS.log (`cutscene check:`) with a line on screen.
 
 ## Playing one
 - From a **WaCa Clan Life** scene (clan events, story days ...): the step `Cutscene: <Name>` - the scene goes on when
