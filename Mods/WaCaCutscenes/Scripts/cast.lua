@@ -19,6 +19,35 @@ local enumCache = {}
 local rogueLooks = {}
 function Cast.SetRogues(t) rogueLooks = t or {} end
 
+-- A ROLE'S MADE-UP CLAN CAT STAYS THE SAME (library exercise 2026-11-02: [Cast] S:envoy = Clan:ShadowClan was Berrysong
+-- in one scene, Heronpelt in the next - a recurring character): the cat made up for a role the first time (its name and
+-- look) is kept with the save, WrcGame.<slot>.WaCaCutscenes.ini [RoleCats], and comes back in every scene after.
+local roleCats, roleCatsSlot
+local function loadRoleCats()
+    local slot = WaCa.CurrentSlot and WaCa.CurrentSlot()
+    if roleCats and roleCatsSlot == slot then return roleCats end
+    roleCats, roleCatsSlot = {}, slot
+    local path = slot and WaCa.SlotFile("WaCaCutscenes")
+    local sec = (path and WaCa.ReadIni(path) or {})["RoleCats"] or {}
+    for k, v in pairs(sec) do
+        local name, look = tostring(v):match("^(.-)|(.+)$")
+        if k ~= "__order" and name then roleCats[k] = { name = name, look = look } end
+    end
+    return roleCats
+end
+local function keepRoleCat(role, pick)
+    local t = loadRoleCats()
+    t[role] = { name = pick.name, look = pick.look }
+    local path = roleCatsSlot and WaCa.SlotFile("WaCaCutscenes")
+    if not path then return end
+    local sec, order = {}, {}
+    for k, v in pairs(t) do sec[k] = v.name .. "|" .. v.look order[#order + 1] = k end
+    table.sort(order)
+    sec.__order = order
+    pcall(WaCa.WriteIni, path, { RoleCats = sec, __order = { "RoleCats" } },
+        "; WaCa Cutscenes - the cats made up for mods' roles in this save (they stay the same cat)")
+end
+
 -- a look text with some of the game's look fields set ("(ClanType=RiverClan,...,FurColorIdx=11,...)")
 local function withFields(look, fields)
     for _, f in ipairs(fields or {}) do
@@ -167,6 +196,7 @@ function Cast.Fill(specs)
     for _, i in ipairs(order) do
         local spec = specs[i]
         local found
+        local roleKey
         -- (a mod's own role played by a cat who isn't in the world - [Cast] S:loner = Rogue:Quill, = Clan:ShadowClan:
         -- brought in for the scene like the spec itself. Library exercise 2026-11-01: a visiting loner had no way in)
         if spec:match("^S:.+$") then
@@ -174,6 +204,7 @@ function Cast.Fill(specs)
             local to = type(specs2) == "table" and specs2[spec] or nil
             if to and (to:match("^Rogue") or to:match("^Clan:")) then
                 log("cast: %s is played by %s - brought in for the scene", spec, to)
+                roleKey = spec
                 spec = to
             end
         end
@@ -213,6 +244,9 @@ function Cast.Fill(specs)
             for _, c in ipairs(WaCa.StoryCats(clan, part ~= "" and part or nil)) do
                 if not pick and not taken["story:" .. c.key] then pick = c end
             end
+            -- (a role's cat from before, in this save)
+            local kept = not pick and roleKey and loadRoleCats()[roleKey]
+            if kept then pick = { key = "role:" .. roleKey, name = kept.name, look = kept.look, made = true, kept = true } end
             if not pick then
                 local all = WaCa.StoryCats()
                 -- (its name: a prefix of one cat, the suffix its part takes - "star" a leader's, "paw" / "kit" - else a
@@ -248,8 +282,11 @@ function Cast.Fill(specs)
                     taken["story:" .. pick.key] = true
                     found = take({ actor = cat, name = pick.name }, spec)
                     found.kind = "spawned"
+                    if roleKey and pick.made and not pick.kept then keepRoleCat(roleKey, pick) end
                     log("cast: %s = %s - %s, brought in for the scene", spec, pick.name,
-                        pick.made and ("a " .. clan .. " cat made up from this save's cats") or ("the save's " .. clan .. " cat"))
+                        pick.kept and (roleKey .. "'s own cat in this save")
+                        or pick.made and ("a " .. clan .. " cat made up from this save's cats" .. (roleKey and (", kept as " .. roleKey .. "'s") or ""))
+                        or ("the save's " .. clan .. " cat"))
                 end
             end
         end
