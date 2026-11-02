@@ -73,6 +73,7 @@ end
 -- from tick to tick would jump about. (A portrait's camera was pulled to 0.2 m from Lionstar's head - something stood
 -- between: VM 2026-10-30.)
 local shotTurn, shotRise
+local orbitPhase, orbitLast            -- (an orbit's start turn - its first open direction - and its last good spot)
 local function bestAround(look, yaw, back, up, keep)
     if keep and shotTurn then
         return (clear(look, add(add(look, dirOf(yaw + shotTurn), -back), v(0, 0, 1), up + (shotRise or 0))))
@@ -109,9 +110,38 @@ local function resolve(name, targets, t)
         return bestAround(look, fwd, cfg.highBack, cfg.highUp), look
     elseif name == "Orbit" then
         local c = A and Stage.Head(A) or v(mid.X, mid.Y, mid.Z + 40)
-        local yaw = fwd + 180 + t * cfg.orbitSpeed
         local r = A and cfg.orbitRadius * 0.45 or cfg.orbitRadius
-        return (clear(c, add(add(c, dirOf(yaw), r), v(0, 0, 1), A and cfg.orbitUp * 0.3 or cfg.orbitUp))), c
+        local up = A and cfg.orbitUp * 0.3 or cfg.orbitUp
+        -- (it starts from the first open direction round the scene - a place hemmed in by rocks on half its sides began
+        -- the circle 0.5 m from a rock: the reed bank, VM 2026-11-02)
+        if not orbitPhase then
+            orbitPhase = 0
+            for _, off in ipairs({ 0, 30, -30, 60, -60, 90, -90, 120, -120, 150, -150, 180 }) do
+                local _, k = clear(c, add(add(c, dirOf(fwd + 180 + off), r), v(0, 0, 1), up))
+                if k >= 0.8 then orbitPhase = off break end
+            end
+            if orbitPhase ~= 0 then log("camera: Orbit starts %d deg round - the first open direction", orbitPhase) end
+        end
+        local yaw = fwd + 180 + orbitPhase + t * cfg.orbitSpeed
+        -- (something in the orbit's way - a rock, a trunk: rise over it rather than pull in to it - the orbit was pulled to
+        -- 0.2 m behind a cat, looking at a rock: library exercise 2026-11-02, a vigil by the reeds. The height found
+        -- only ever rises within a shot - a camera bobbing up and down as it circles would be worse)
+        local rise0 = shotRise or 0
+        local best, bestK, bestRise
+        for _, extra in ipairs({ 0, 150, 300, 450 }) do
+            local rise = rise0 + extra
+            local loc, k = clear(c, add(add(c, dirOf(yaw), r), v(0, 0, 1), up + rise))
+            if not bestK or k > bestK + 0.05 then best, bestK, bestRise = loc, k, rise end
+            if k >= 0.8 then break end
+        end
+        if bestRise > rise0 then
+            shotRise = bestRise
+            log("camera: Orbit - its way blocked, %d cm higher now (%.0f%% of its distance clear)", bestRise, bestK * 100)
+        end
+        -- (behind a rock even so: it waits at its last good spot till its way is open again, rather than dive in)
+        if bestK < 0.5 and orbitLast then return orbitLast, c end
+        if bestK >= 0.5 then orbitLast = best end
+        return best, c
     elseif name == "Portrait" and A then
         local head = Stage.Head(A)
         local yaw = A:K2_GetActorRotation().Yaw
@@ -181,7 +211,7 @@ function Camera.Shot(name, targets, blend)
         log("camera: the game's camera%s", (blend or 0) > 0 and string.format(" (%.1f s)", blend) or "")
         return
     end
-    stillCache, shotTurn, shotRise = nil, nil, nil
+    stillCache, shotTurn, shotRise, orbitPhase, orbitLast = nil, nil, nil, nil, nil
     if not place(name, targets, 0) then
         log("camera: can't frame %s with %d cat(s) - the shot stays", tostring(name), #targets)
         return
