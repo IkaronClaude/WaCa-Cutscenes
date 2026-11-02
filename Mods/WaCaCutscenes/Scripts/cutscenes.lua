@@ -42,6 +42,8 @@ local cfg = { on = true, ahead = 250, walkFrom = 600, fade = 0.6, maxSeconds = 1
               putPlayerBack = false, sayBase = 2, sayPerChar = 0.07, lineOffset = 380, farAway = 8000, farWait = 4 }
 local defs, shapes, places = {}, {}, {}
 local keepRunning, clearRunning        -- (a reload in mid-scene - below)
+local subtitle                      -- the cutscene's subtitle widget (its object path)
+local cards = {}                    -- Card: widgets up now: { path, till (cutscene seconds) }
 local ACTIONS = {}                     -- (the beats' actions - below; the check reads it too)
 local farFrom = {}                  -- a cutscene waiting for its far place to load -> where your cat was
 local playing                       -- the cutscene on now
@@ -247,8 +249,11 @@ keepRunning = function(run)
     for i, e in ipairs(Stage.Snapshot()) do
         cats["c" .. i] = string.format("%s|%.1f %.1f %.1f %.1f|%s|%s", e.path, e.x, e.y, e.z, e.yaw, e.kind, e.hidden and "1" or "0")
     end
+    local cardPaths = {}
+    for _, c in ipairs(cards) do cardPaths[#cardPaths + 1] = c.path end
     WaCa.WriteIni(runningPath(), { Run = { Name = run.name, Camera = Camera.Path() or "", Hud = hud or "",
-        HudWas = tostring(run.hudWas or ""), __order = { "Name", "Camera", "Hud", "HudWas" } }, Cats = cats,
+        HudWas = tostring(run.hudWas or ""), Subtitle = subtitle or "", Cards = table.concat(cardPaths, ";"),
+        __order = { "Name", "Camera", "Hud", "HudWas", "Subtitle", "Cards" } }, Cats = cats,
         __order = { "Run", "Cats" } }, "; WaCa Cutscenes - a cutscene is playing (put back if the mod reloads mid-scene)")
 end
 clearRunning = function()
@@ -267,6 +272,10 @@ local function recoverRunning()
         end
     end
     local n = Stage.RestoreFrom(list)
+    -- (its subtitle and cards off the screen)
+    for path in ((r.Subtitle or "") .. ";" .. (r.Cards or "")):gmatch("[^;]+") do
+        pcall(function() local w = StaticFindObject(path) if w and w:IsValid() then w:RemoveFromParent() end end)
+    end
     local pc, pawn = Cast.Controller(), Cast.Pawn()
     -- (the view back to the game's own camera actor - the pawn only when there's none)
     pcall(function()
@@ -514,8 +523,7 @@ end
 -- last. Card: <text> shows the card as it is. Both go by the cutscene's own clock (game time).
 local SWIRL = { "CanvasBackground", "BackgroundBlur2", "mcGuiVfxWindPartRight", "mcGuiVfxWindPart", "mcGuiVfxFireflies",
                 "mcGuiBaseSelected", "mcGuiBaseSelect1" }
-local subtitle                      -- the cutscene's subtitle widget (its object path)
-local cards = {}                    -- Card: widgets up now: { path, till (cutscene seconds) }
+-- (subtitle / cards: declared at the top - the reload file keeps them too)
 
 local function makeCard()
     local class = WaCa.LoadAsset(CARD)
@@ -553,6 +561,7 @@ local function subtitleWidget()
         slot:SetPosition({ X = p.X, Y = p.Y + cfg.lineOffset })
     end)
     subtitle = (w:GetFullName():gsub("^%S+ ", ""))
+    if playing and playing.recorded then pcall(keepRunning, playing) end
     log("lines on screen: the game's message card as a subtitle (%d of its parts hidden)", hidden)
     return w
 end
@@ -589,6 +598,7 @@ local function showCard(text, till)
         local w = makeCard()
         w.mcGuiTextInfo:SetText(FText(text))       -- (after AddToViewport: its construct sets a string-table key)
         cards[#cards + 1] = { path = (w:GetFullName():gsub("^%S+ ", "")), till = till }
+        if playing and playing.recorded then pcall(keepRunning, playing) end
     end)
     if not ok then log("can't show the card \"%s\" (%s)", text, tostring(err)) end
 end
