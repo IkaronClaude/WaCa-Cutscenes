@@ -38,6 +38,7 @@ local WaCa, log, modDir
 local Cast, Stage, Camera, Scenes
 local CARD = "/Game/Art/UXD/Blueprints/Popups/WBP_GuiPopupCenterMessage.WBP_GuiPopupCenterMessage_C"
 local cfg = { on = true, ahead = 250, walkFrom = 600, fade = 0.6, maxSeconds = 180, endAfter = 2, hideHud = true, waitMax = 20,
+              enclosedAt = 150,
               putPlayerBack = false, sayBase = 2, sayPerChar = 0.07, lineOffset = 380, farAway = 8000, farWait = 4 }
 local defs, shapes, places = {}, {}, {}
 local farFrom = {}                  -- a cutscene waiting for its far place to load -> where your cat was
@@ -121,6 +122,7 @@ local function readCutscenes()
     cfg.walkSpeed = tonumber(s.WalkSpeed or "")
     cfg.maxSeconds = tonumber(s.MaxSeconds or "") or cfg.maxSeconds
     cfg.waitMax = tonumber(s.WaitMax or "") or cfg.waitMax
+    cfg.enclosedAt = tonumber(s.EnclosedAt or "") or cfg.enclosedAt
     cfg.hideHud = (s.HideHud or "1") ~= "0"
     cfg.lineOffset = tonumber(s.LineOffset or "") or cfg.lineOffset
     cfg.putPlayerBack = (s.PutPlayerBack or "0") == "1"
@@ -269,11 +271,32 @@ local function fitScore(shape, used, mid, fwd)
     return n, bad, g0
 end
 
+-- ENCLOSED: how many of 8 short traces round a scene's middle (at a cat's head height) hit something - trunks, roots,
+-- rocks. A scene staged inside a big tree's root zone has no good shot from any side: the leaves over the roots have no
+-- collision, the camera can't see them (VM 2026-11-02, the camp's river edge: 7 of 12 hit, open camp 0)
+local kismetFit
+local function enclosure(mid)
+    kismetFit = kismetFit or StaticFindObject("/Script/Engine.Default__KismetSystemLibrary")
+    local at = v(mid.X, mid.Y, mid.Z + 60)
+    local n = 0
+    for a = 0, 315, 45 do
+        local hit = {}
+        local to = v(at.X + math.cos(math.rad(a)) * cfg.enclosedAt, at.Y + math.sin(math.rad(a)) * cfg.enclosedAt, at.Z)
+        local ok, b = pcall(function()
+            return kismetFit:LineTraceSingle(Cast.Pawn(), at, to, 1, true, {}, 0, hit, true,
+                { R = 0, G = 0, B = 0, A = 0 }, { R = 0, G = 0, B = 0, A = 0 }, 0)
+        end)
+        if ok and b then n = n + 1 end
+    end
+    return n
+end
+
 -- where the shape fits best: Here - turned round your cat (the scene's middle nearer if it must be); turn - turned on
 -- the spot; fixed - as it is (checked, logged)
 local function fit(name, shape, used, mid, fwd, how, from)
     local turns = how == "fixed" and { 0 } or { 0, 45, -45, 90, -90, 135, -135, 180 }
-    local reach = how == "Here" and { cfg.ahead, cfg.ahead * 0.5, 0 } or { false }
+    -- (Here: in front of your cat first; further out when the near spots are enclosed - EnclosedAt)
+    local reach = how == "Here" and { cfg.ahead, cfg.ahead * 0.5, 0, cfg.ahead * 2, cfg.ahead * 3 } or { false }
     local pawn = Cast.Pawn()
     local best
     for _, dist in ipairs(reach) do
@@ -284,11 +307,16 @@ local function fit(name, shape, used, mid, fwd, how, from)
             -- (Here: a middle your cat can see - not behind a rock)
             if not (dist and dist > 0 and Stage.Blocked(pawn, from, m)) then
                 local n, bad, g = fitScore(shape, used, m, yaw)
-                if g and (not best or n > best.n) then best = { n = n, bad = bad, mid = v(m.X, m.Y, g), yaw = yaw, turn = t, dist = dist } end
-                if best and best.n == #used then break end
+                -- (the marks first; among as good, the most open spot - Here only, where the spot is ours to pick)
+                local closed = (g and how == "Here" and cfg.enclosedAt > 0) and enclosure(v(m.X, m.Y, g)) or 0
+                local score = n * 10 - closed
+                if g and (not best or score > best.score) then
+                    best = { n = n, bad = bad, mid = v(m.X, m.Y, g), yaw = yaw, turn = t, dist = dist, closed = closed, score = score }
+                end
+                if best and best.n == #used and best.closed <= 2 then break end
             end
         end
-        if best and best.n == #used then break end
+        if best and best.n == #used and best.closed <= 2 then break end
     end
     -- (a place's middle with no room - the Island's zone marks its shore, water around it: VM 2026-10-31 - the nearest
     -- dry ground round it, 3 / 6 / 10 m out)
@@ -315,7 +343,8 @@ local function fit(name, shape, used, mid, fwd, how, from)
     local notes = {}
     if best.turn ~= 0 then notes[#notes + 1] = string.format("turned %d degrees", best.turn) end
     if best.moved then notes[#notes + 1] = string.format("moved %.0f m off its place (no room there)", best.moved / 100) end
-    if best.dist and best.dist < cfg.ahead then notes[#notes + 1] = string.format("%.1f m in front of your cat", best.dist / 100) end
+    if best.dist and best.dist ~= cfg.ahead then notes[#notes + 1] = string.format("%.1f m from your cat", best.dist / 100) end
+    if (best.closed or 0) > 2 then notes[#notes + 1] = string.format("enclosed on %d of 8 sides (no more open spot near)", best.closed) end
     if best.n < #used then
         notes[#notes + 1] = string.format("only %d of %d marks have room (%s is in the way)", best.n, #used, tostring(best.bad))
     end
