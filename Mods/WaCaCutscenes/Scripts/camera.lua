@@ -12,7 +12,7 @@ local Camera = {}
 
 local WaCa, log, Stage, Cast
 local cfg = { fov = 60, wideBack = 700, wideUp = 300, highBack = 300, highUp = 1100, orbitRadius = 650, orbitUp = 260,
-              orbitSpeed = 9, portrait = 170, over = 130, twoMin = 280, letterbox = 0, focus = 0, catGap = 60 }
+              orbitSpeed = 9, portrait = 170, over = 130, twoMin = 280, letterbox = 0, focus = 0, catGap = 60, foliageRadius = 30 }
 local cam, before                  -- the camera actor; the view target before the cutscene
 local shot                         -- { pose = fn() -> loc, look; from = {loc, rot}; blend; t }
 local scene                        -- { middle, forward (yaw) } of the cutscene playing
@@ -81,11 +81,70 @@ local function catInWay(look, loc, actors)
     end
     return false
 end
+-- (PLANTS WITHOUT COLLISION - VM 2026-11-02: reeds stood between the camera and Lionstar; a trace through them hits
+-- nothing on any channel, simple or complex. Foliage meshes with collision off are found by their instances' bounds
+-- instead - points along the line, FoliageRadius round each; the components listed again every 30 s. 721
+-- components x 4 points took 0.04 s on the VM.)
+local plants, plantsAt = {}, -1000
+local function plantsNow()
+    if os.time() - plantsAt < 30 then return plants end
+    plants, plantsAt = {}, os.time()
+    for _, c in ipairs(FindAllOf("InstancedStaticMeshComponent") or {}) do
+        local ok, off = pcall(function() return c:IsValid() and c:GetCollisionEnabled() == 0 end)
+        if ok and off then plants[#plants + 1] = c end
+    end
+    return plants
+end
+-- (an instance's bounding SPHERE caught every candidate - the ground moss is everywhere, all 21 shots '15% clear', VM;
+-- so each instance found is checked against its own box: the mesh's bounds x the instance's scale - flat moss blocks
+-- only a point inside it, a reed (~20 cm wide, ~1 m tall) a point among its stems)
+local meshBounds = {}
+local function inPlant(c, idx, p, r)
+    local key = c:GetFullName()
+    local b = meshBounds[key]
+    if b == nil then
+        b = false
+        pcall(function()
+            local mb = c.StaticMesh:GetBounds()
+            b = { oz = mb.Origin.Z, ex = math.max(mb.BoxExtent.X, mb.BoxExtent.Y), ez = mb.BoxExtent.Z }
+        end)
+        meshBounds[key] = b
+    end
+    if not b then return true end
+    local t = {}
+    if not pcall(function() c:GetInstanceTransform(idx, t, true) end) then return true end
+    local at, sc = t.Translation, t.Scale3D
+    local lo, hi = at.Z + (b.oz - b.ez) * sc.Z, at.Z + (b.oz + b.ez) * sc.Z
+    if p.Z < lo - r or p.Z > hi + r then return false end
+    local dx, dy = p.X - at.X, p.Y - at.Y
+    return math.sqrt(dx * dx + dy * dy) <= b.ex * math.max(sc.X, sc.Y) + r
+end
+-- the fraction of the way from what is looked at to the camera that is free of plants (1 = none)
+local function plantFree(look, loc)
+    if (cfg.foliageRadius or 0) <= 0 then return 1 end
+    local list = plantsNow()
+    for _, f in ipairs({ 0.35, 0.55, 0.75, 0.95 }) do
+        local p = v(look.X + (loc.X - look.X) * f, look.Y + (loc.Y - look.Y) * f, look.Z + (loc.Z - look.Z) * f)
+        for _, c in ipairs(list) do
+            local ok, r = pcall(function() return c:GetInstancesOverlappingSphere(p, cfg.foliageRadius, true) end)
+            if ok and r then
+                for _, idx in ipairs(r) do
+                    if type(idx) ~= "number" then pcall(function() idx = idx:get() end) end
+                    local okIn, inside = pcall(inPlant, c, idx, p, cfg.foliageRadius)
+                    if okIn and inside then return f - 0.2 end
+                end
+            end
+        end
+    end
+    return 1
+end
 local function clear(look, loc)
     kismet = kismet or StaticFindObject("/Script/Engine.Default__KismetSystemLibrary")
     local hit = {}
     local ignore = Stage.Actors()
     if catInWay(look, loc, ignore) then return loc, 0 end
+    local free = plantFree(look, loc)
+    if free < 1 then return loc, math.max(0, free) end
     local ok, blocked = pcall(function()
         return kismet:LineTraceSingle(Cast.Pawn(), look, loc, 1, true, ignore, 0, hit, true,
             { R = 0, G = 0, B = 0, A = 0 }, { R = 0, G = 0, B = 0, A = 0 }, 0)

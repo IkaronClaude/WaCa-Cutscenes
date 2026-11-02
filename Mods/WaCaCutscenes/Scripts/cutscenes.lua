@@ -1093,7 +1093,7 @@ function Cutscenes.Init(c)
     Camera.Init({ WaCa = WaCa, log = log, Stage = Stage, Cast = Cast, camera = {
         fov = camCfg.FOV, wideBack = camCfg.WideBack, wideUp = camCfg.WideUp, orbitRadius = camCfg.OrbitRadius,
         orbitSpeed = camCfg.OrbitSpeed, portrait = camCfg.Portrait, letterbox = camCfg.Letterbox, focus = camCfg.Focus,
-        catGap = camCfg.CatGap } })
+        catGap = camCfg.CatGap, foliageRadius = camCfg.FoliageRadius } })
     local names, shapeNames = {}, {}
     for n in pairs(defs) do names[#names + 1] = n end
     for n in pairs(shapes) do shapeNames[#shapeNames + 1] = n end
