@@ -794,7 +794,8 @@ end
 function ACTIONS.End(run) run.ending = "its End beat" end
 
 -- Ask: <var> = <question>; <answers> - library exercise 2026-11-02 (a cutscene couldn't ask the player anything, nor
--- go two ways): WaCa Clan Life's Choice asks (PlayScene); the timeline holds till the variable changes.
+-- go two ways): WaCa Clan Life's Choice asks (PlayScene); the timeline holds till its ChoiceAnswered event (not a
+-- change of the variable - the same answer as last time changes nothing).
 function ACTIONS.Ask(run, b)
     local var = trim(b.who)
     if var == "" or not b.what then return log("%s: Ask needs <variable> = <question>; <answer>; <answer>", run.name) end
@@ -836,13 +837,13 @@ local function tick()
         h.since = h.since + dt
         local done
         if h.ask then
-            done = storyVars[h.ask] ~= nil and storyVars[h.ask] ~= h.before
+            done = h.answer ~= nil
             if not done and h.since >= cfg.askMax then
                 log("%s: no answer to %s in %.0f s (is WaCa Clan Life on?) - goes on", run.name, h.ask, h.since)
                 done = true
             end
-            if done and storyVars[h.ask] ~= h.before then
-                log("%s: %s answered %s - the timeline goes on", run.name, h.ask, tostring(storyVars[h.ask]))
+            if h.answer ~= nil then
+                log("%s: %s answered %s - the timeline goes on", run.name, h.ask, tostring(h.answer))
             end
         elseif h.till then
             done = h.since >= h.till
@@ -1161,6 +1162,12 @@ function Cutscenes.Init(c)
         end)
     end)
     WaCa.On("StoryVar", function(name, value) if name then storyVars[tostring(name)] = value end end)
+    WaCa.On("ChoiceAnswered", function(name, n)
+        if not name then return end
+        storyVars[tostring(name)] = n
+        local h = playing and playing.hold
+        if h and h.ask == tostring(name) then h.answer = n end
+    end)
     WaCa.On("PlayCutscene", function(name)
         ExecuteInGameThread(function()
             local ok, err = pcall(Cutscenes.Play, trim(name))
