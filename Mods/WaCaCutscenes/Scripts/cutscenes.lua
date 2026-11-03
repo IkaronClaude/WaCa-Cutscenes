@@ -1205,7 +1205,7 @@ function Cutscenes.Init(c)
                 end
                 ExecuteInGameThreadWithDelay(50, step)
             end
-            log("camera moment: %s on %d cat(s) for %s s", tostring(shotName), #actors, tostring(seconds))
+            log("camera moment: %s on %d cat(s) for %.1f s", tostring(shotName), #actors, tonumber(seconds) or 4)
             step()
         end)
     end)
