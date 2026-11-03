@@ -1163,6 +1163,52 @@ function Cutscenes.Init(c)
         end)
     end)
     WaCa.On("StoryVar", function(name, value) if name then storyVars[tostring(name)] = value end end)
+    -- A CAMERA MOMENT outside a cutscene (library exercise 2026-11-03, item 5's "a nicer moment" when your cat joins a
+    -- clanmate): WaCa.Emit("CameraMoment", shot, "<actor path>;<actor path>", seconds[, blend]) - the cutscene camera
+    -- frames those cats with that shot (Two, Portrait, Over, Wide ...) for that many game seconds, then blends back to
+    -- the game's camera. Your keys and the HUD stay; a cutscene starting (or one playing) wins.
+    local moment
+    WaCa.On("CameraMoment", function(shotName, who, seconds, blend)
+        ExecuteInGameThread(function()
+            if playing then log("camera moment: a cutscene is playing - none") return end
+            local actors = {}
+            for path in tostring(who or ""):gmatch("[^;]+") do
+                local a = WaCa.Live(StaticFindObject(path))
+                if a then actors[#actors + 1] = a end
+            end
+            if #actors == 0 then log("camera moment: none of '%s' is there", tostring(who)) return end
+            local mid, fwd = v(0, 0, 0), 0
+            for _, a in ipairs(actors) do
+                local p = a:K2_GetActorLocation()
+                mid = v(mid.X + p.X / #actors, mid.Y + p.Y / #actors, mid.Z + p.Z / #actors)
+            end
+            pcall(function() fwd = Cast.Pawn():K2_GetActorRotation().Yaw end)
+            local mine = {}
+            moment = mine
+            Camera.Begin(mid, fwd)
+            Camera.Shot(tostring(shotName or "Two"), actors, tonumber(blend) or 1)
+            local started, last = gameNow(), gameNow()
+            local function step()
+                if moment ~= mine then return end
+                if playing then moment = nil return end          -- (a cutscene took the camera)
+                local now = gameNow()
+                Camera.Tick(math.max(0, math.min(1, now - last)))
+                last = now
+                if now - started >= (tonumber(seconds) or 4) then
+                    moment = nil
+                    Camera.Shot("Game", {}, tonumber(blend) or 1)
+                    ExecuteInGameThreadWithDelay(math.floor((tonumber(blend) or 1) * 1000) + 200, function()
+                        if not playing and not moment then pcall(Camera.End) end
+                    end)
+                    log("camera moment: over (%.1f s)", now - started)
+                    return
+                end
+                ExecuteInGameThreadWithDelay(50, step)
+            end
+            log("camera moment: %s on %d cat(s) for %s s", tostring(shotName), #actors, tostring(seconds))
+            step()
+        end)
+    end)
     WaCa.On("ChoiceAnswered", function(name, n)
         if not name then return end
         storyVars[tostring(name)] = n
