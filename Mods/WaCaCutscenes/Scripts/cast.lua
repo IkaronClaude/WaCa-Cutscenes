@@ -48,13 +48,41 @@ local function keepRoleCat(role, pick)
         "; WaCa Cutscenes - the cats made up for mods' roles in this save (they stay the same cat)")
 end
 
--- a look text with some of the game's look fields set ("(ClanType=RiverClan,...,FurColorIdx=11,...)")
-local function withFields(look, fields)
+-- a look text with some of the game's look fields set ("(ClanType=RiverClan,...,FurColorIdx=11,...)"). A field the look
+-- doesn't have is left out and named in the log, with the nearest real one (library pre-work 2026-11-03: [Rogue.Frost]
+-- FurColourIdx = 2 was appended, the game ignored it, the rogue just kept its base colour - not a word said)
+local function closest(name, keys)
+    local best, bestD
+    for k in pairs(keys) do
+        local a, b = name:lower(), k:lower()
+        local prev = {}
+        for j = 0, #b do prev[j] = j end
+        for i = 1, #a do
+            local cur = { [0] = i }
+            for j = 1, #b do
+                cur[j] = math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + ((a:sub(i, i) == b:sub(j, j)) and 0 or 1))
+            end
+            prev = cur
+        end
+        if not bestD or prev[#b] < bestD then best, bestD = k, prev[#b] end
+    end
+    return best, bestD
+end
+local function withFields(look, fields, who)
+    local keys = {}
+    for k in look:gmatch("[,(]%s*(%w+)=") do keys[k] = true end
     for _, f in ipairs(fields or {}) do
         local k, v = f[1], f[2]
+        if next(keys) and not keys[k] then
+            local near, d = closest(k, keys)
+            log("cast: %s - %s isn't a look field, left out%s", tostring(who or "a look"), k,
+                (near and d <= 3) and (" (did you mean " .. near .. "?)") or "")
+            goto continue
+        end
         local n
         look, n = look:gsub("([,(])" .. k .. "=[^,()]*", "%1" .. k .. "=" .. v)
         if n == 0 then look = look:gsub("%)%s*$", "," .. k .. "=" .. v .. ")") end
+        ::continue::
     end
     return look
 end
@@ -339,8 +367,12 @@ function Cast.Fill(specs)
                 local name = rogueName or word
                 if name ~= "" and not name:find("^STR_") and not used[name] then
                     local look = a.look:gsub("Role=%w+", "Role=Warrior")
+                    -- (not the cat it was made from's name: a rogue From = Nightheart answered to "Nightheart" - two
+                    -- of it in the world, and a role cast by that name could find the rogue; library pre-work
+                    -- 2026-11-03. The scene names the rogue itself)
+                    look = look:gsub('PrefixNameId="[^"]*"', 'PrefixNameId=""'):gsub('SuffixNameId="[^"]*"', 'SuffixNameId=""')
                     local own = rogueName and rogueLooks[rogueName]
-                    if own and #own.fields > 0 then look = withFields(look, own.fields) end
+                    if own and #own.fields > 0 then look = withFields(look, own.fields, "Rogue." .. tostring(rogueName)) end
                     pick = { name = name, look = look, from = a.name .. ((own and #own.fields > 0) and (" + " .. #own.fields .. " field(s) of its pack") or "") }
                 end
             end
