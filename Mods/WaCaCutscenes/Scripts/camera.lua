@@ -6,13 +6,15 @@
 --   Portrait = <who>        a cat's face, from in front
 --   Over = <who> > <who>    over the first cat's shoulder at the second
 --   Two = <who> & <who>     both cats from the side
+--   Behind = <who>          behind a cat and a little above, looking where it goes - it follows a cat that walks
+--                           (library pre-work 2026-11-03: a cat walking off could only be watched from in front / aside)
 --   Game                    back to the game's own camera
 -- A shot cuts; "~<seconds>" after it moves there instead (Camera: Portrait = B1 ~2).
 local Camera = {}
 
 local WaCa, log, Stage, Cast
 local cfg = { fov = 60, wideBack = 700, wideUp = 300, highBack = 300, highUp = 1100, orbitRadius = 650, orbitUp = 260,
-              orbitSpeed = 9, portrait = 170, over = 130, twoMin = 280, letterbox = 0, focus = 0, catGap = 60, foliageRadius = 30 }
+              orbitSpeed = 9, portrait = 170, over = 130, twoMin = 280, behind = 260, behindUp = 70, behindAhead = 300, letterbox = 0, focus = 0, catGap = 60, foliageRadius = 30 }
 local cam, before                  -- the camera actor; the view target before the cutscene
 local shot                         -- { pose = fn() -> loc, look; from = {loc, rot}; blend; t }
 local scene                        -- { middle, forward (yaw) } of the cutscene playing
@@ -248,6 +250,10 @@ local function resolve(name, targets, t)
         local ha, hb = Stage.Head(A), Stage.Head(B)
         local yaw = Stage.YawTo(ha, hb)
         return (clear(hb, add(add(add(ha, dirOf(yaw), -cfg.over), rightOf(yaw), 45), v(0, 0, 1), 25))), hb
+    elseif name == "Behind" and A then
+        local head = Stage.Head(A)
+        local yaw = A:K2_GetActorRotation().Yaw
+        return bestAround(head, yaw, cfg.behind, cfg.behindUp, true), add(head, dirOf(yaw), cfg.behindAhead)
     elseif name == "Two" and A and B then
         local ha, hb = Stage.Head(A), Stage.Head(B)
         local m = v((ha.X + hb.X) / 2, (ha.Y + hb.Y) / 2, (ha.Z + hb.Z) / 2)

@@ -61,7 +61,7 @@ Beat9 = 16 End
 | `Pose: <who> = <pose>` | `Sit`, `Lie`, `Sleep`, `Eat`, `Sniff`, `Meow`, `Play`, `Dig`, `Groom`, `Win`, `Hit`, `Hiss`, `Growl`, `TailUp`, `Stalk`, `Pounce`, `Stop` - or a montage's path |
 | `Say: <who> = <line>` | the line on screen with the cat's name; `{PLAYER}` / `{P1}`, `{P2}` ... = those cats' names |
 | `Card: <text>` | a line on screen without a name |
-| `Camera: <shot> [= <who>]` | `Wide`, `High`, `Orbit [= <who>]`, `Portrait = <who>`, `Over = <who> > <who>`, `Two = <who> & <who>`, `Game` (the game's own camera); add `~<seconds>` to move there instead of cutting |
+| `Camera: <shot> [= <who>]` | `Wide`, `High`, `Orbit [= <who>]`, `Portrait = <who>`, `Over = <who> > <who>`, `Two = <who> & <who>`, `Behind = <who>` (behind a cat, following it as it walks), `Game` (the game's own camera); add `~<seconds>` to move there instead of cutting |
 | `Wait: <who>` / `Wait: <s>` | the timeline holds till those cats are on their marks (a walk-in takes what it takes - at most `WaitMax` s), or a pause |
 | `Ask: <var> = [<who>:] <question>; <answer 1>; <answer 2> ...` | the player answers on the game's own answer menu (WaCa Clan Life's Choice - the mouse, Up / Down + Enter or a pad, or the number keys); `A1: ...` puts that cat's name on the speaker plate, `{B1}` names are filled; the timeline holds till then (`AskMax` s at most); the story variable gets the answer's number |
 | `Sound: <cue> [= <volume>]` | one of the game's own sounds - a full `/Game/...` path or the short form under `/Game/Audio/Cues/` (`music/MS_mus_sting_queststep`, `UI/S_Cue_ui_back`); the scene's sounds stop when it ends |

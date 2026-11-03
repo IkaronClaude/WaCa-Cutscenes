@@ -221,7 +221,7 @@ end
 -- Camra: Wide loaded without a word - in play the place fell back to "here", the beat did nothing): every cutscene's
 -- place, shape, cast and beats are checked against what exists; each problem logged ("cutscene check: ..."), a count
 -- on screen. A cast name that isn't a part may be a cat's own name - only one a letter or two off a part is flagged.
-local SHOTS = { Wide = true, High = true, Orbit = true, Portrait = true, Over = true, Two = true, Game = true }
+local SHOTS = { Wide = true, High = true, Orbit = true, Portrait = true, Over = true, Two = true, Behind = true, Game = true }
 local CASTPARTS = { "Player", "Leader", "Deputy", "MedicineCat", "Queen", "Kit", "Elder", "Apprentice", "Warrior",
                     "Mentor", "Nearest", "Rogue" }
 local function near(a, b)              -- (edit distance <= 2, short words: a typo)
