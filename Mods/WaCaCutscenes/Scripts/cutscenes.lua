@@ -28,7 +28,7 @@
 --   Fade: <seconds> / FadeIn: <seconds>
 --   Emit: <event>                another mod's code runs here (WaCa.Emit)
 --   Wait: <who> / <seconds>      the timeline holds till those cats are on their marks (WaitMax), or a pause
---   Ask: <var> = <question>; <answer 1>; <answer 2> ...   the player answers (WaCa Clan Life's Choice: number keys);
+--   Ask: <var> = <question>; <answer 1>; <answer 2> ...   the player answers (WaCa Clan Life's Choice: the game's answer menu; "A1: ..." = A1 speaks it, {B1} names filled);
 --                                the timeline holds till then (AskMax s at most); the story variable gets the number
 --   [<var> = <value>] before an action: that beat plays only if it holds ("Beat7 = 10 [Shelter = 1] Say: A2 = ...";
 --                                = != < > <= >=, several joined by ","). The variables: those set while Cutscenes
@@ -803,8 +803,16 @@ function ACTIONS.Ask(run, b)
     run.lineTill = nil
     hideLine()                                     -- (the question takes the line's place)
     run.hold = { ask = var, before = nil, since = 0, why = "the answer to " .. var }
-    WaCa.Emit("PlayScene", "Choice: " .. var .. " = " .. b.what)
-    log("%s: asks %s - %s", run.name, var, b.what)
+    -- (library exercise 2026-11-03, the question on the game's answer menu: its {B1} names were left as typed, and the
+    -- speaker's plate could only take a name typed in - the leader's differs per save. A cast slot before the question
+    -- - "A1: Should {B1} stay?" - is the speaker: the plate shows the cat cast in it)
+    local what = b.what
+    local slot, rest = what:match("^%s*(%w+):%s*(.*)$")
+    local speaker = slot and resolveWho(slot, run)[1]
+    if speaker then what = nameOf(run, speaker) .. ": " .. rest end
+    what = fillNames(run, what)
+    WaCa.Emit("PlayScene", "Choice: " .. var .. " = " .. what)
+    log("%s: asks %s - %s", run.name, var, what)
 end
 
 -- Wait: <who> - the timeline holds till those cats are on their marks (a walk takes what it takes: a writer can't
