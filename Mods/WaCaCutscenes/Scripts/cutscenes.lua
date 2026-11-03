@@ -190,13 +190,24 @@ local function readCutscenes()
                     if k ~= "Scene" and k ~= "Off" and trim(sec[k]) ~= "" then d.roles[k] = trim(sec[k]) end
                 end
             end
+            -- (Beat<number>, or Beat<number><letters> to slot one in between without renumbering - Beat2a comes
+            -- after Beat2 at the same time; any other key is reported by the check - it was dropped without a word,
+            -- library pre-work 2026-11-03)
+            d.unknown = {}
             for _, k in ipairs(sec.__order or {}) do
                 if k:match("^%u$") then d.groups[k] = split(sec[k], ",") end
-                local n = k:match("^Beat(%d+)$")
+                local n, sub = k:match("^Beat(%d+)(%a*)$")
                 if n then
                     local b = parseBeat(sec[k])
-                    if b then b.n = tonumber(n) d.beats[#d.beats + 1] = b
-                    else log("%s: can't read %s = %s", name, k, tostring(sec[k])) end
+                    if b then
+                        b.key = k
+                        b.n = tonumber(n) + (sub ~= "" and (sub:lower():byte(1) - 96) / 100 or 0)
+                        d.beats[#d.beats + 1] = b
+                    else
+                        log("%s: can't read %s = %s", name, k, tostring(sec[k]))
+                    end
+                elseif not d.scene and not k:match("^%u$") and k ~= "Place" and k ~= "Shape" and k ~= "Scene" and k ~= "Off" then
+                    d.unknown[#d.unknown + 1] = k
                 end
             end
             table.sort(d.beats, function(a, b) if a.t ~= b.t then return a.t < b.t end return a.n < b.n end)
@@ -250,11 +261,14 @@ function Cutscenes.Check()
             end
             for _, b in ipairs(d.beats) do
                 if not ACTIONS[b.action] then
-                    problem(d, "Beat%d: no action '%s'", b.n, b.action)
+                    problem(d, "%s: no action '%s'", b.key or ("Beat" .. b.n), b.action)
                 elseif b.action == "Camera" then
                     local shot = (b.who or ""):match("^(%a+)")
-                    if shot and not SHOTS[shot] then problem(d, "Beat%d: no camera shot '%s'", b.n, shot) end
+                    if shot and not SHOTS[shot] then problem(d, "%s: no camera shot '%s'", b.key or ("Beat" .. b.n), shot) end
                 end
+            end
+            for _, k in ipairs(d.unknown or {}) do
+                problem(d, "%s - not a key of a cutscene (Place, Shape, a cast group A-Z, Beat<number>[<letter>])", k)
             end
         end
     end
@@ -759,17 +773,50 @@ local function fillNames(run, text)
     end))
 end
 
+-- a slot a line names but nobody plays ({A2} with no cat for A2), or nil (library pre-work 2026-11-03: "Sit with me, {A2}"
+-- went on screen as typed when the newcomer for A2 was missing)
+local function uncastName(text)
+    return tostring(text or ""):match("{(%u%d+)}")
+end
+
 function ACTIONS.Say(run, b)
     local a = resolveWho(b.who, run)[1]
     local line = fillNames(run, b.what or "")
     if not a then return log("%s: %s isn't cast - its line is left out", run.name, b.who) end
+    if uncastName(line) then return log("%s: a line names %s, who isn't cast - left out", run.name, uncastName(line)) end
     local name = nameOf(run, a)
     log("%s: %s says \"%s\"", run.name, name, line)
     if showLine(name .. ": " .. line) then run.lineTill = (run.shown or 0) + sayFor(line) end
 end
 
+-- Sound: <cue> [= <volume>] - one of the game's own sounds, 2D (library pre-work 2026-11-03: a scene had no sound of its
+-- own - no music sting, no growl). <cue> = a full path (/Game/Audio/Cues/UI/S_Cue_ui_back) or the short form under the
+-- game's cue folder (UI/S_Cue_ui_back); volume 1 = as the game plays it. The scene's sounds stop when it ends.
+function ACTIONS.Sound(run, b)
+    local name = trim(b.who or "")
+    if name == "" then return log("%s: Sound needs a cue (UI/S_Cue_ui_back or a /Game/... path)", run.name) end
+    local path = name:sub(1, 1) == "/" and name or ("/Game/Audio/Cues/" .. name)
+    if not path:find("%.") then path = path .. "." .. path:match("([^/]+)$") end
+    local volume = tonumber(trim(b.what or "")) or 1
+    local ok, err = pcall(function()
+        local cue = WaCa.Live(WaCa.LoadAsset(path))
+        if not cue then error("no such sound asset") end
+        local comp = StaticFindObject("/Script/Engine.Default__GameplayStatics"):SpawnSound2D(Cast.Pawn(), cue, volume, 1.0,
+            0.0, nil, false, true)
+        if WaCa.Live(comp) then
+            run.sounds = run.sounds or {}
+            run.sounds[#run.sounds + 1] = (comp:GetFullName():gsub("^%S+ ", ""))
+            log("%s: sound %s (volume %.2f)%s", run.name, path, volume, comp:IsPlaying() and "" or " - not playing")
+        else
+            log("%s: sound %s - the engine gave no audio component", run.name, path)
+        end
+    end)
+    if not ok then log("%s: sound %s failed (%s)", run.name, path, tostring(err)) end
+end
+
 function ACTIONS.Card(run, b)
     local text = fillNames(run, b.what and (b.who .. " = " .. b.what) or b.who)
+    if uncastName(text) then return log("%s: a card names %s, who isn't cast - left out", run.name, uncastName(text)) end
     showCard(text, (run.shown or 0) + sayFor(text))
 end
 
@@ -906,6 +953,13 @@ finish = function(why)
     fade(0, 1, cfg.fade)
     ExecuteInGameThreadWithDelay(math.floor(cfg.fade * 1000) + 100, function()
         clearLines()
+        -- (the scene's own sounds end with it - a music sting must not outlive the scene)
+        for _, path in ipairs(run.sounds or {}) do
+            pcall(function()
+                local comp = WaCa.Live(StaticFindObject(path))
+                if comp and comp:IsPlaying() then comp:Stop() end
+            end)
+        end
         local n = 0
         pcall(function() n = Stage.Release(cfg.putPlayerBack) end)
         -- (the scene took your cat far away: back to where it was, with PutPlayerBack)

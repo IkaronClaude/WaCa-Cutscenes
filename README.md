@@ -49,7 +49,7 @@ Beat9 = 16 End
   rogue names - Tiger, Fox, Slate ...) - brought in the same way; a mod's own role played by such a cat
   (Clan Life's `[Cast] S:loner = Rogue:Quill`) too. A part nobody plays
   is left out - the cutscene still plays.
-- **Beats** - `BeatN = <seconds from the start> <Action>: <who> [= <what>]`. Who is a mark (`A1`), a group (`B`), `All`
+- **Beats** - `BeatN = <seconds from the start> <Action>: <who> [= <what>]` (`Beat2a` slots a beat in after `Beat2` without renumbering; any other key is reported by the load-time check). A line or card that names a cat nobody plays is left out (logged). Who is a mark (`A1`), a group (`B`), `All`
   or `Player`.
 
 | Action | |
@@ -63,7 +63,8 @@ Beat9 = 16 End
 | `Card: <text>` | a line on screen without a name |
 | `Camera: <shot> [= <who>]` | `Wide`, `High`, `Orbit [= <who>]`, `Portrait = <who>`, `Over = <who> > <who>`, `Two = <who> & <who>`, `Game` (the game's own camera); add `~<seconds>` to move there instead of cutting |
 | `Wait: <who>` / `Wait: <s>` | the timeline holds till those cats are on their marks (a walk-in takes what it takes - at most `WaitMax` s), or a pause |
-| `Ask: <var> = <question>; <answer 1>; <answer 2> ...` | the player answers (WaCa Clan Life's Choice - number keys 1-4); the timeline holds till then (`AskMax` s at most); the story variable gets the answer's number |
+| `Ask: <var> = [<who>:] <question>; <answer 1>; <answer 2> ...` | the player answers on the game's own answer menu (WaCa Clan Life's Choice - the mouse, Up / Down + Enter or a pad, or the number keys); `A1: ...` puts that cat's name on the speaker plate, `{B1}` names are filled; the timeline holds till then (`AskMax` s at most); the story variable gets the answer's number |
+| `Sound: <cue> [= <volume>]` | one of the game's own sounds - a full `/Game/...` path or the short form under `/Game/Audio/Cues/` (`music/MS_mus_sting_queststep`, `UI/S_Cue_ui_back`); the scene's sounds stop when it ends |
 | `[<var> = <value>]` before an action | that beat plays only when it holds: `Beat9 = 16 [Shelter = 1] Say: A1 = ...` (`= != < > <= >=`, several joined by `,`) - one scene, two ways after an `Ask:` |
 | `Fade: <s>` / `FadeIn: <s>` | to black / back |
 | `Emit: <event>` / `Emit: <event> = <value>` | another mod's code runs here (with a value: `Emit: SetSpecialisation = Herbalist`) |
