@@ -950,16 +950,20 @@ finish = function(why)
     local run = playing
     if not run or run.over then return end
     run.over = true
+    -- (the scene's own sounds end with it - a music sting must not outlive the scene; faded out over the scene's own
+    -- fade, not cut - the camp music under ElderTale stopped dead at its End, library pre-work 2026-11-03)
+    for _, path in ipairs(run.sounds or {}) do
+        pcall(function()
+            local comp = WaCa.Live(StaticFindObject(path))
+            if comp and comp:IsPlaying() then
+                local ok = pcall(function() comp:FadeOut(math.max(0.1, cfg.fade), 0.0, 0) end)
+                if ok then log("%s: sound faded out (%.1f s)", run.name, math.max(0.1, cfg.fade)) else comp:Stop() end
+            end
+        end)
+    end
     fade(0, 1, cfg.fade)
     ExecuteInGameThreadWithDelay(math.floor(cfg.fade * 1000) + 100, function()
         clearLines()
-        -- (the scene's own sounds end with it - a music sting must not outlive the scene)
-        for _, path in ipairs(run.sounds or {}) do
-            pcall(function()
-                local comp = WaCa.Live(StaticFindObject(path))
-                if comp and comp:IsPlaying() then comp:Stop() end
-            end)
-        end
         local n = 0
         pcall(function() n = Stage.Release(cfg.putPlayerBack) end)
         -- (the scene took your cat far away: back to where it was, with PutPlayerBack)
