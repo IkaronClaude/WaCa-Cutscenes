@@ -1137,7 +1137,7 @@ function Cutscenes.Init(c)
             end)
         elseif key == cfg.previewKey and key ~= "" and cfg.preview ~= "" then
             ExecuteInGameThread(function() pcall(Cutscenes.Play, cfg.preview) end)
-        elseif key == cfg.skipKey and key ~= "" and playing and not playing.over and not playing.scene then
+        elseif cfg.skipKey ~= "" and WaCa.KeyIs(key, cfg.skipKey) and playing and not playing.over and not playing.scene then
             playing.ending = "skipped"
         end
     end)
