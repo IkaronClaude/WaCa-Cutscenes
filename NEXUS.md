@@ -57,7 +57,7 @@ write.
 Tested with the Steam version of the game, October 2026 build. Experimental: tell us what your stories need.
 
 ## Source code & contributing
-Open source (Apache 2.0): TODO: https://github.com/IkaronClaude/WaCa-Cutscenes - shapes, cutscenes and pull requests
+Open source (Apache 2.0): https://github.com/IkaronClaude/WaCa-Cutscenes - shapes, cutscenes and pull requests
 are very welcome.
 
 ## AI disclosure
