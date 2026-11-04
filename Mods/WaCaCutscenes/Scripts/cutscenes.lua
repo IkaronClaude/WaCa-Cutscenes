@@ -1256,8 +1256,19 @@ function Cutscenes.Init(c)
     -- outside a cutscene): WaCa.Emit("ShowLine", "<who>: <line>" [, seconds]) - the cutscenes' subtitle, gone after
     -- seconds (default: by its length). Left out while a cutscene plays (its own lines go first).
     local lineGen = 0
+    -- (lines in the world only - operator 2026-11-04: "The wind blows from the north-east." on the main menu; the game
+    -- loads the last save for the menu's preview cat, so mods think a save is on. A line without the game's HUD is
+    -- dropped - a cutscene's own lines go through showLine directly, not this)
+    local hudUp = false
+    WaCa.On("ScreenShown", function(screen)
+        if screen:GetClass():GetFName():ToString():find("^WBP_GuiHudGame") then hudUp = true end
+    end)
+    WaCa.On("ScreenHidden", function(screen)
+        if screen:GetClass():GetFName():ToString():find("^WBP_GuiHudGame") then hudUp = false end
+    end)
     WaCa.On("ShowLine", function(text, seconds)
         if playing or not text or text == "" then return end
+        if not hudUp then log("line (not in the world - not shown): %s", tostring(text)) return end
         ExecuteInGameThread(function()
             lineGen = lineGen + 1
             local gen = lineGen
