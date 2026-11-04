@@ -787,7 +787,18 @@ local function fillNames(run, text)
     return (tostring(text or ""):gsub("{([%w:_]+)}", function(key)
         if key == "PLAYER" then return Cast.PlayerName() end
         local a = resolveWho(key, run)[1]
-        return a and nameOf(run, a) or nil
+        if a then return nameOf(run, a) end
+        -- (a cat the scene didn't cast - {Leader}, {S:storyteller}, a name: its name all the same)
+        if not key:match("^%u%d+$") then
+            local ok, name = pcall(Cast.NameFor, key)
+            if ok and name then return name end
+            run.unnamed = run.unnamed or {}
+            if not run.unnamed[key] then
+                run.unnamed[key] = true
+                log("%s: a line names {%s} - %s; left as written", run.name, key, ok and "no such cat about" or tostring(name))
+            end
+        end
+        return nil
     end))
 end
 

@@ -437,6 +437,32 @@ function Cast.Fill(specs)
     return out
 end
 
+-- the NAME of the cat a spec means, without casting it (library exercise 2026-11-04: a line naming a cat the scene
+-- didn't cast - "I'll tell {Leader}" - went on screen as typed): Player, S:<role> (WaCa Clan Life's [Cast]), E:<story
+-- role>, a part (Leader, Deputy ...) of your clan, or a name; nil when there's no such cat about
+function Cast.NameFor(spec)
+    if spec == "Player" then return Cast.PlayerName() end
+    if spec:match("^S:.+$") then
+        local cast = WaCa.Latest and WaCa.Latest("roles.cast")
+        local path = type(cast) == "table" and cast[spec] or nil
+        local a = path and WaCa.Live(StaticFindObject(path))
+        if a then return Cast.NameOf(a) end
+        local specs = WaCa.Latest and WaCa.Latest("roles.specs")
+        local to = type(specs) == "table" and specs[spec] or nil
+        return to and to:match("^Rogue:(.+)$") or nil
+    end
+    local myClan = WaCa.PlayerClan and WaCa.PlayerClan() or nil
+    local kind = spec:match("^E:(.+)$")
+    for _, c in ipairs(candidates()) do
+        local mine = not (myClan and c.clan and c.clan ~= myClan)
+        if (kind and c.story == kind) or (not kind and PARTS[spec] and mine and hasPart(c, spec))
+            or (not kind and not PARTS[spec] and c.name and c.name:lower() == spec:lower()) then
+            return c.name
+        end
+    end
+    return nil
+end
+
 function Cast.Init(c) WaCa, log = c.WaCa, c.log end
 
 
