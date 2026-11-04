@@ -739,6 +739,22 @@ function ACTIONS.Place(run, b)
 end
 
 function ACTIONS.Walk(run, b)
+    -- (Walk: <who> = Away - the cat leaves: out from the scene's middle through where it stands, WalkFrom far, facing the
+    -- way it goes; library pre-work 2026-11-03 - a rogue could stalk in, never off)
+    if trim(b.what or "") == "Away" then
+        local mid = run.middle
+        if not mid then return log("%s: walk away - the scene has no middle", run.name) end
+        for _, a in ipairs(resolveWho(b.who, run)) do
+            local q = a:K2_GetActorLocation()
+            local dx, dy = q.X - mid.X, q.Y - mid.Y
+            local d = math.sqrt(dx * dx + dy * dy)
+            if d < 1 then dx, dy, d = math.cos(math.rad(run.forward or 0)), math.sin(math.rad(run.forward or 0)), 1 end
+            local spot = v(q.X + dx / d * cfg.walkFrom, q.Y + dy / d * cfg.walkFrom, q.Z)
+            Stage.Walk(a, spot, Stage.YawTo(q, spot))
+            log("%s: %s walks away", run.name, nameOf(run, a))
+        end
+        return
+    end
     local to = pointOf(run, b.what or "Middle")
     if not to then return log("%s: walk - no %s", run.name, tostring(b.what)) end
     for _, a in ipairs(resolveWho(b.who, run)) do

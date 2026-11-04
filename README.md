@@ -56,6 +56,7 @@ Beat9 = 16 End
 |---|---|
 | `WalkIn: <who>` | the cats walk onto their marks (they start a few metres out) |
 | `Walk: <who> = <who>` | walk up to another cat (or `Middle`), facing it |
+| `Walk: <who> = Away` | the cat leaves: walks off from the middle of the scene (`walkFrom` far), facing the way it goes - pair it with `Camera: Behind = <who>` to watch it go |
 | `Place: <who>` | onto their marks at once |
 | `Look: <who> = <who>` | turn to a cat (or `Middle`, `Camera`) |
 | `Pose: <who> = <pose>` | `Sit`, `Lie`, `Sleep`, `Eat`, `Sniff`, `Meow`, `Play`, `Dig`, `Groom`, `Win`, `Hit`, `Hiss`, `Growl`, `TailUp`, `Stalk`, `Pounce`, `Stop` - or a montage's path |

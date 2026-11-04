@@ -176,8 +176,12 @@ end
 -- walk to a spot (then face yaw); onArrive() when there
 function Stage.Walk(a, spot, yaw, onArrive)
     local e = actors[Cast.PathOf(a)]
-    if not e then return onArrive and onArrive() end
-    e.walk = { to = copyLoc(spot), yaw = yaw, onArrive = onArrive, since = 0 }
+    if not e then
+        -- (a cat the stage doesn't hold walked nowhere and said nothing - library pre-work 2026-11-04)
+        log("stage: %s isn't on the stage - it can't walk", Cast.NameOf(a) or a:GetFName():ToString())
+        return onArrive and onArrive()
+    end
+    e.walk = { to = copyLoc(spot), yaw = yaw, onArrive = onArrive, since = 0, from = copyLoc(a:K2_GetActorLocation()) }
     if e.kind ~= "player" then playWalk(a, true) end
 end
 
@@ -199,6 +203,11 @@ end
 local function arrive(a, e)
     local w = e.walk
     e.walk = nil
+    -- (how far it really went - the scene's log said "walks away" whether or not the cat moved)
+    pcall(function()
+        local q = a:K2_GetActorLocation()
+        log("stage: %s walked %.1f m in %.1f s", e.name or "?", math.sqrt((q.X - w.from.X) ^ 2 + (q.Y - w.from.Y) ^ 2) / 100, w.since)
+    end)
     if e.kind ~= "player" then playWalk(a, false) end
     if w.yaw then Stage.Turn(a, w.yaw) end
     if w.onArrive then pcall(w.onArrive) end

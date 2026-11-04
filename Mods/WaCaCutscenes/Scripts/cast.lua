@@ -130,7 +130,12 @@ function Cast.PlayerName()
 end
 
 -- a cat's name as the game shows it (its name ids -> the text table)
+-- (a cat the cast brought in carries no name ids of its own - a rogue's look drops the source cat's: the name the cast
+-- gave it, by its path; the camera's log said BP_WrcSK_Customization_Cat_C_2147470815 for Frost)
+local castNames = {}
 function Cast.NameOf(cat)
+    local given = cat and castNames[Cast.PathOf(cat)]
+    if given then return given end
     if WaCa.CatName then return WaCa.CatName(cat) end
     local name
     pcall(function()
@@ -203,6 +208,7 @@ function Cast.Fill(specs)
     local pawn = Cast.Pawn()
     local function take(c, spec)
         taken[Cast.PathOf(c.actor)] = true
+        if c.name and c.name ~= "" then castNames[Cast.PathOf(c.actor)] = c.name end
         return { actor = c.actor, name = c.name, spec = spec, kind = c.kind }
     end
     local function free(c) return not taken[Cast.PathOf(c.actor)] end
