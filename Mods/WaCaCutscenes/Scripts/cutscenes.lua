@@ -532,6 +532,8 @@ local function resolveWho(text, run)
             if p then out[#out + 1] = p end
         elseif run.cats[w] then
             out[#out + 1] = run.cats[w]
+        elseif run.slotOf and run.slotOf[w] and run.cats[run.slotOf[w]] then
+            out[#out + 1] = run.cats[run.slotOf[w]]
         elseif run.shape.groups[w] then
             for _, k in ipairs(run.shape.groups[w]) do if run.cats[k] then out[#out + 1] = run.cats[k] end end
         end
@@ -782,7 +784,7 @@ end
 -- a line's names: {PLAYER} = your cat's name (the game's own lines use it), {P1} / {B2} ... = the cat cast in that slot
 -- (library exercise 2026-10-30: a writer's "{PLAYER}" showed as typed)
 local function fillNames(run, text)
-    return (tostring(text or ""):gsub("{(%w+)}", function(key)
+    return (tostring(text or ""):gsub("{([%w:_]+)}", function(key)
         if key == "PLAYER" then return Cast.PlayerName() end
         local a = resolveWho(key, run)[1]
         return a and nameOf(run, a) or nil
@@ -1086,6 +1088,11 @@ function Cutscenes.Play(name)
         if f then
             run.cats[k], run.names[k] = f.actor, f.name
             run.order[#run.order + 1] = k
+            -- (the slot by what cast it - S:loner, Leader, Rogue:Frost: a line's {S:loner} / a beat's "S:loner" finds it)
+            run.slotOf = run.slotOf or {}
+            -- (as the scene wrote it - specs[i]; f.spec is what it resolved to, S:loner -> Rogue:Quill: VM 2026-11-04)
+            if specs[i] and not run.slotOf[specs[i]] then run.slotOf[specs[i]] = k end
+            if f.spec and not run.slotOf[f.spec] then run.slotOf[f.spec] = k end
             run.kinds = run.kinds or {}
             run.kinds[k] = f.kind
             run.hidden = run.hidden or {}
