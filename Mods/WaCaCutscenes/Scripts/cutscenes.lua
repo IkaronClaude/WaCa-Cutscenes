@@ -1218,14 +1218,16 @@ function Cutscenes.Init(c)
             end)
         elseif key == cfg.previewKey and key ~= "" and cfg.preview ~= "" then
             ExecuteInGameThread(function() pcall(Cutscenes.Play, cfg.preview) end)
-        elseif cfg.skipKey ~= "" and WaCa.KeyIs(key, cfg.skipKey) and playing and not playing.over and not playing.scene then
-            playing.ending = "skipped"
+        elseif cfg.skipKey ~= "" and WaCa.KeyIs(key, cfg.skipKey) and playing and not playing.over then
+            if playing.scene then Scenes.Skip() else playing.ending = "skipped" end
         end
     end)
     -- (a skip: the SkipKey, or any mod - WaCa.Emit("SkipCutscene"); it ends as at its End: fade, cats back, the game's
     -- camera and HUD; library follow-up (d), 2026-10-31)
     WaCa.On("SkipCutscene", function()
-        if playing and not playing.over and not playing.scene then playing.ending = "skipped" end
+        if playing and not playing.over then
+            if playing.scene then Scenes.Skip() else playing.ending = "skipped" end      -- (the game's scene too)
+        end
     end)
     -- A LINE ON SCREEN FOR ANY MOD (library exercise 2026-10-30: Clan Life's hunt comments had nowhere to show a line
     -- outside a cutscene): WaCa.Emit("ShowLine", "<who>: <line>" [, seconds]) - the cutscenes' subtitle, gone after

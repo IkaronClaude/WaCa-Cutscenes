@@ -128,7 +128,12 @@ local function plantFree(look, loc)
     for _, f in ipairs({ 0.35, 0.55, 0.75, 0.95 }) do
         local p = v(look.X + (loc.X - look.X) * f, look.Y + (loc.Y - look.Y) * f, look.Z + (loc.Z - look.Z) * f)
         for _, c in ipairs(list) do
-            local ok, r = pcall(function() return c:GetInstancesOverlappingSphere(p, cfg.foliageRadius, true) end)
+            -- (the list is up to 30 s old: a level streamed out since - a cutscene moving your cat to its place, or
+            -- just walking - FREES its foliage components, and a call on one read freed memory: the game crashed in
+            -- UE4SS, which a pcall can't catch - 3 crashes 2026-11-03/04, pinned by a guarded UE4SS build's traceback
+            -- to this line, 40 times in one sweep. IsValid looks the pointer up without touching the object.)
+            local ok, r = false, nil
+            if WaCa.Live(c) then ok, r = pcall(function() return c:GetInstancesOverlappingSphere(p, cfg.foliageRadius, true) end) end
             if ok and r then
                 for _, idx in ipairs(r) do
                     if type(idx) ~= "number" then pcall(function() idx = idx:get() end) end

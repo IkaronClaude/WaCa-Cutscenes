@@ -163,6 +163,37 @@ end
 
 function Scenes.Playing() return current and current.name or nil end
 
+-- A SKIP (library sweep 2026-11-04: the skip key / SkipCutscene left the game's scenes out - a ceremony could not be
+-- skipped, and one whose sequence stopped without the game's OnSequenceFinished never ended: every later cutscene
+-- waited behind it). The playing sequence players go to their end (the engine's own stop); if the game's manager has
+-- not finished the scene a moment later, it is told to (SequencerFinished + its skip prompt hidden); if even that
+-- doesn't end it, the scene ends here - logged.
+function Scenes.Skip()
+    local run = current
+    if not run then return false end
+    local n = 0
+    for _, p in ipairs(FindAllOf("LevelSequencePlayer") or {}) do
+        local ok, playing = pcall(function() return WaCa.Live(p) and p:IsPlaying() end)
+        if ok and playing and pcall(function() p:GoToEndAndStop() end) then n = n + 1 end
+    end
+    log("%s: skipped - %d sequence player(s) sent to their end", run.name, n)
+    ExecuteInGameThreadWithDelay(1500, function()
+        if current ~= run then return end
+        local manager = WaCa.Live(FindFirstOf("SwtQuestSequencerManager"))
+        if manager then
+            pcall(function() manager:SequencerFinished({ TagName = FName(run.tag) }) end)
+            pcall(function() manager:HidePopupSkipCinematic() end)
+        end
+        ExecuteInGameThreadWithDelay(1500, function()
+            if current ~= run then return end
+            current = nil
+            log("%s: the game didn't end its scene on the skip - ended here", run.name)
+            if run.done then pcall(run.done, "skipped") end
+        end)
+    end)
+    return true
+end
+
 function Scenes.Init(c)
     WaCa, log, Cast = c.WaCa, c.log, c.Cast
     -- (the scene's cats are dressed by the game as its scene loads them - their looks built: WaCa Core's CatLookPart.
