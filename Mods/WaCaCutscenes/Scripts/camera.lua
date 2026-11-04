@@ -328,7 +328,13 @@ function Camera.Shot(name, targets, blend)
     end
     stillCache, shotTurn, shotRise, orbitPhase, orbitLast = nil, nil, nil, nil, nil
     if not place(name, targets, 0) then
-        log("camera: can't frame %s with %d cat(s) - the shot stays", tostring(name), #targets)
+        -- (say what was wrong: no such shot, or too few cats for it - 'Low' read "can't frame Low with 0 cat(s)")
+        local need = ({ Wide = 0, High = 0, Orbit = 0, Portrait = 1, Behind = 1, Over = 2, Two = 2 })[tostring(name)]
+        if not need then
+            log("camera: no shot '%s' (Wide, High, Orbit, Portrait, Over, Two, Behind, Game) - the shot stays", tostring(name))
+        else
+            log("camera: %s needs %d cat(s), it got %d - the shot stays", tostring(name), need, #targets)
+        end
         return
     end
     local first = not (cam and cam:IsValid())

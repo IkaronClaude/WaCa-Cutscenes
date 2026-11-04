@@ -265,6 +265,18 @@ function Cutscenes.Check()
                 elseif b.action == "Camera" then
                     local shot = (b.who or ""):match("^(%a+)")
                     if shot and not SHOTS[shot] then problem(d, "%s: no camera shot '%s'", b.key or ("Beat" .. b.n), shot) end
+                    -- (how many cats a shot frames - library exercise 2026-11-04: 'Portrait' alone and 'Over = A1' only
+                    -- showed in play, as "can't frame ... with 0 cat(s)")
+                    local need = ({ Portrait = 1, Behind = 1, Over = 2, Two = 2 })[shot or ""]
+                    if need then
+                        local n = 0
+                        for _ in tostring(b.what or ""):gmatch("[^,&>]+") do n = n + 1 end
+                        if n < need then
+                            problem(d, "%s: Camera: %s frames %s - %s", b.key or ("Beat" .. b.n), shot,
+                                need == 1 and "a cat (" .. shot .. " = B1)" or "two cats (" .. shot .. " = A1 " .. (shot == "Over" and ">" or "&") .. " B1)",
+                                n == 0 and "none named" or "one named")
+                        end
+                    end
                 end
             end
             for _, k in ipairs(d.unknown or {}) do
