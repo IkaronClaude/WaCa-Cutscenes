@@ -453,12 +453,26 @@ function Cast.NameFor(spec)
     end
     local myClan = WaCa.PlayerClan and WaCa.PlayerClan() or nil
     local kind = spec:match("^E:(.+)$")
-    for _, c in ipairs(candidates()) do
+    local function fits(c)
         local mine = not (myClan and c.clan and c.clan ~= myClan)
-        if (kind and c.story == kind) or (not kind and PARTS[spec] and mine and hasPart(c, spec))
-            or (not kind and not PARTS[spec] and c.name and c.name:lower() == spec:lower()) then
-            return c.name
-        end
+        return (kind and c.story == kind) or (not kind and PARTS[spec] and mine and hasPart(c, spec))
+            or (not kind and not PARTS[spec] and c.name and c.name:lower() == spec:lower())
+    end
+    for _, c in ipairs(candidates()) do
+        if fits(c) then return c.name end
+    end
+    -- (a story cat the game doesn't draw right now - the leader far off: the full sweep 2026-11-04 named {Leader} only
+    -- while Lionstar was in view - as Cast.Fill finds one: the quest cats, never a parked filler copy)
+    for _, a in ipairs(FindAllOf("SwtAdventureQuestActor") or {}) do
+        local name
+        pcall(function()
+            if not WaCa.Live(a) or a:GetClass():GetFName():ToString():find("Filler") then return end
+            local c = { name = Cast.NameOf(a) or "", giver = enumName("/Script/SwtQuest.EGiverRole", a.GiverRole) or "",
+                        story = enumName("/Script/SwtQuest.ENarrativeRole", a.narrativeRole) or "" }
+            pcall(function() c.clan = enumName("/Script/SwtQuest.EClanType", a.ClanType) end)
+            if c.name ~= "" and fits(c) then name = c.name end
+        end)
+        if name then return name end
     end
     return nil
 end
