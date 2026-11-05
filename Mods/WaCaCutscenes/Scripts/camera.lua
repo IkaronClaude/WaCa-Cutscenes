@@ -178,7 +178,17 @@ end
 table.sort(CANDIDATES, function(a, b) if a[3] ~= b[3] then return a[3] < b[3] end return a[1] > b[1] end)
 local shotTurn, shotRise
 local orbitPhase, orbitLast            -- (an orbit's start turn - its first open direction - and its last good spot)
-local function bestAround(look, yaw, back, up, keep)
+-- (alsoSee: the heads the shot frames - a spot is only as clear as its worst sightline to them too. Library exercise
+-- 2026-11-05: a Two shot by the reeds turned to a spot '100% clear' to the point between the cats, and a rock hid the
+-- queen - only my cat showed, in a corner)
+local function seesAll(loc, k, alsoSee)
+    for _, p in ipairs(alsoSee or {}) do
+        local _, kp = clear(p, loc)
+        if kp < k then k = kp end
+    end
+    return k
+end
+local function bestAround(look, yaw, back, up, keep, alsoSee)
     if keep and shotTurn then
         return (clear(look, add(add(look, dirOf(yaw + shotTurn), -back), v(0, 0, 1), up + (shotRise or 0))))
     end
@@ -192,6 +202,7 @@ local function bestAround(look, yaw, back, up, keep)
         local off, rise = c[1], c[2]
         local want = add(add(look, dirOf(yaw + off), -back), v(0, 0, 1), up + rise)
         local loc, k = clear(look, want)
+        if alsoSee and k >= 0.9 then k = seesAll(want, k, alsoSee) end
         if k >= 0.9 then best, bestK, bestOff, bestRise = loc, k, off, rise break end
         if not bestK or k > bestK + 0.05 then best, bestK, bestOff, bestRise = loc, k, off, rise end
     end
@@ -268,7 +279,7 @@ local function resolve(name, targets, t)
         local back = dirOf(fwd)
         if side.X * back.X + side.Y * back.Y > 0 then side = v(-side.X, -side.Y, 0) end
         local sideYaw = math.deg(math.atan(side.Y, side.X))
-        return bestAround(m, sideYaw + 180, math.max(cfg.twoMin, d * 1.3), 30, true), m
+        return bestAround(m, sideYaw + 180, math.max(cfg.twoMin, d * 1.3), 30, true, { ha, hb }), m
     end
     return nil
 end
