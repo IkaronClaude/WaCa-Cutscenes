@@ -3,7 +3,7 @@
 <!-- Paste-ready text for the Nexus Mods upload form. Replace the TODO links once the pages exist. -->
 
 **Name:** WaCa Cutscenes
-**Version:** 0.1.0
+**Version:** 0.2.0
 **Category:** Gameplay / Modders resources
 **Summary (short description, max 350 characters):**
 Cutscenes from plain text: the cats of a scene in a premade shape (two sides facing, a ring, a clan meeting, a
@@ -69,4 +69,6 @@ Open source under the Apache License 2.0: use it, modify it, include it in modpa
 the licence and credit.
 
 ## Changelog
+- 0.2.0 - a cutscene can bring your cat home after it (PutPlayerBack per scene); two-shots keep both cats in view; the
+  writer is told when a place is too cramped to film; lines only show once you are in the world.
 - 0.1.0 - first version: shapes, places, the cast by part, beats, named camera shots; Clan Life's `Cutscene:` step.

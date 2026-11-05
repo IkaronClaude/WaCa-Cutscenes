@@ -1,7 +1,7 @@
 -- WaCa Cutscenes: cutscenes from plain text - a cast of cats set out in a premade shape at a place, then a timeline of
 -- beats (walk in, look, pose, say, camera moves). Any mod plays one by name (the PlayCutscene event; Clan Life's scenes:
 -- "Cutscene: <Name>"). Needs WaCa Core.
-local VERSION = "0.1.0"
+local VERSION = "0.2.0"
 local hasCore, WaCa = pcall(require, "WaCa")    -- (no WaCa Core: its library is missing too)
 
 local modDir = debug.getinfo(1, "S").source:match("^@(.+)[/\\]Scripts[/\\]main%.lua$") or "."
