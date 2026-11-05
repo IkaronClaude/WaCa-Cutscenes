@@ -1218,9 +1218,49 @@ function Cutscenes.Init(c)
         table.concat(names, ", "), table.concat(shapeNames, ", "))
     -- (for other mods - WaCa Clan Life's story check: every Cutscene: step names one of these)
     pcall(WaCa.Publish, "cutscenes.names", names, true)
+    -- THE PLACES CHECKED FOR THE CAMERA (library exercise 2026-11-05: a cutscene by the reeds - rocks one side, a tree's
+    -- crown over it - where no camera spot framed its cats; the writer only found out in play): once per session, a
+    -- while after the world is up, each cutscene with a fixed place (places.ini, Zone:, x y z - not Here / Pile, which
+    -- move with your cat) gets its wide shot's view tested; under 60% open = a note for the writer. One a half second.
+    local placesChecked = false
+    local function checkPlaces()
+        local list = {}
+        for name, d in pairs(defs) do
+            if d.place and d.place ~= "Here" and d.place ~= "Pile" then list[#list + 1] = { name = name, d = d } end
+        end
+        table.sort(list, function(a, b) return a.name < b.name end)
+        local i, cramped = 0, 0
+        local function step()
+            i = i + 1
+            local e = list[i]
+            if not e then
+                log("place check: %d cutscene place(s) looked at for the camera, %d cramped", #list, cramped)
+                return
+            end
+            local ok, err = pcall(function()
+                local mid, fwd, how = placeOf(e.d)
+                if mid and how ~= "Here" then
+                    local open = Camera.OpenView(mid, fwd)
+                    if open < 0.6 then
+                        cramped = cramped + 1
+                        log("place check: NOTE for the writer - %s at %s: no open view round it (at best %.0f%%) - a camera "
+                            .. "can't frame it well; a more open Place frames it better", e.name, e.d.place, open * 100)
+                    end
+                end
+            end)
+            -- (a check that failed says so - an error counted as "open" would hide the very thing it looks for)
+            if not ok then log("place check: %s - couldn't be checked (%s)", e.name, tostring(err)) end
+            ExecuteInGameThreadWithDelay(500, step)
+        end
+        step()
+    end
     WaCa.On("ScreenShown", function(screen)
         local cls = screen:GetClass():GetFName():ToString()
         if cls:find("^WBP_GuiHudGame") then hud = (screen:GetFullName():gsub("^%S+ ", "")) end
+        if cls:find("^WBP_GuiHudGame") and not placesChecked and cfg.checkPlaces ~= false then
+            placesChecked = true
+            ExecuteInGameThreadWithDelay(20000, function() pcall(checkPlaces) end)
+        end
         -- (the world going - a load, the main menu: a cutscene playing ends now, its cats go with the level)
         if playing and (cls:find("Loader") or cls:find("MainMenu") or cls:find("Transition")) then
             log("%s: the level is going - ended", playing.name)

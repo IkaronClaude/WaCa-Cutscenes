@@ -220,6 +220,21 @@ local function bestAround(look, yaw, back, up, keep, alsoSee)
     return best
 end
 
+-- HOW OPEN A PLACE IS for a wide shot - the best clear fraction of the candidate spots round it (1 = a clear view), no
+-- log: the place check before play (cutscenes.lua - library exercise 2026-11-05, a cutscene by the reeds where no spot
+-- framed its cats)
+function Camera.OpenView(middle, forward)
+    local look = v(middle.X, middle.Y, middle.Z + 40)
+    local best = 0
+    for _, c in ipairs(CANDIDATES) do
+        local want = add(add(look, dirOf(forward + c[1]), -cfg.wideBack), v(0, 0, 1), cfg.wideUp + c[2])
+        local _, k = clear(look, want)
+        if k > best then best = k end
+        if best >= 0.9 then break end
+    end
+    return best
+end
+
 -- the shot's camera place and the point it looks at, now (moving shots change every tick)
 local function resolve(name, targets, t)
     local mid, fwd = scene.middle, scene.forward
