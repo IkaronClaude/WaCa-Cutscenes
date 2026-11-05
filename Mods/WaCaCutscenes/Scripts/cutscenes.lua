@@ -183,6 +183,10 @@ local function readCutscenes()
         if name and sec.Off ~= "1" then
             local d = { name = name, place = trim(sec.Place or "Here"), shape = trim(sec.Shape or "Facing"), groups = {},
                         beats = {}, mods = sec.__mods }
+            -- (PutPlayerBack = 1 / 0 for this scene alone - the setting's default otherwise. Library exercise 2026-11-05:
+            -- the Gathering's scene carried your cat 140 m to the Island and left it there at night, under 'the Clans go
+            -- home'; only the global setting could change that, for every scene)
+            if trim(sec.PutPlayerBack) == "1" then d.putBack = true elseif trim(sec.PutPlayerBack) == "0" then d.putBack = false end
             -- (one of the game's own scenes, re-cast: Scene = RankUp, and its parts - every other key - see scenes.lua)
             if trim(sec.Scene) ~= "" then
                 d.scene, d.roles = trim(sec.Scene), {}
@@ -206,7 +210,7 @@ local function readCutscenes()
                     else
                         log("%s: can't read %s = %s", name, k, tostring(sec[k]))
                     end
-                elseif not d.scene and not k:match("^%u$") and k ~= "Place" and k ~= "Shape" and k ~= "Scene" and k ~= "Off" then
+                elseif not d.scene and not k:match("^%u$") and k ~= "Place" and k ~= "Shape" and k ~= "Scene" and k ~= "Off" and k ~= "PutPlayerBack" then
                     d.unknown[#d.unknown + 1] = k
                 end
             end
@@ -1006,9 +1010,11 @@ finish = function(why)
     ExecuteInGameThreadWithDelay(math.floor(cfg.fade * 1000) + 100, function()
         clearLines()
         local n = 0
-        pcall(function() n = Stage.Release(cfg.putPlayerBack) end)
+        local putBack = cfg.putPlayerBack
+        if run.putBack ~= nil then putBack = run.putBack end
+        pcall(function() n = Stage.Release(putBack) end)
         -- (the scene took your cat far away: back to where it was, with PutPlayerBack)
-        if cfg.putPlayerBack and run.cameFrom then
+        if putBack and run.cameFrom then
             pcall(function() Cast.Pawn():K2_SetActorLocation(run.cameFrom, false, {}, true) end)
         end
         pcall(Camera.End)
@@ -1104,7 +1110,7 @@ function Cutscenes.Play(name)
     end
     local found = Cast.Fill(specs)
     local run = { name = name, shape = shape, middle = mid, forward = fwd, cats = {}, names = {}, order = {},
-                  beats = d.beats, next = 1, t = 0, cameFrom = cameFrom }
+                  beats = d.beats, next = 1, t = 0, cameFrom = cameFrom, putBack = d.putBack }
     local lines = {}
     for i, k in ipairs(order) do
         local f = found[i]

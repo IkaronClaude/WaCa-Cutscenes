@@ -74,7 +74,9 @@ Beat9 = 16 End
 
 While a cutscene plays your keys and the HUD are off (SkipKey - `SpaceBar` by default - skips it;
 `WaCa.Emit("SkipCutscene")` from a mod); at the end the cats go back where they were and the game's
-camera comes back (your cat stays where the cutscene left it - `PutPlayerBack = 1` changes that).
+camera comes back (your cat stays where the cutscene left it - `PutPlayerBack = 1` changes that; in a
+`[Cutscene.<Name>]` section, `PutPlayerBack = 1` / `0` sets it for that scene alone - a scene far off, which carries
+your cat there, can bring it home again).
 
 **A film's look** (`cutscenes.ini [Camera]`, off by default): `Letterbox = 2.39` frames every cutscene at that aspect
 ratio with black bars; `Focus = 2.8` adds depth of field at that f-stop, the focus kept on what each shot looks at.
