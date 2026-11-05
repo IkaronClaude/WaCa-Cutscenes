@@ -209,6 +209,12 @@ local function bestAround(look, yaw, back, up, keep, alsoSee)
     if bestOff ~= 0 or bestRise ~= 0 or bestK < 0.9 then
         log("camera: the shot's way was blocked - turned %d deg, %d cm higher, %.0f%% of its distance clear", bestOff,
             bestRise, bestK * 100)
+        -- (for the writer: no spot round the place frames this shot - a cramped place, rocks / a tree's crown about it;
+        -- library exercise 2026-11-05 by the reeds - the Two shot had no view of both cats)
+        if bestK < 0.6 and scene and scene.middle then
+            log("camera: NOTE for the writer - no open view round %.0f %.0f for this shot (at best %.0f%%): a more open "
+                .. "place for this cutscene (cutscenes.ini Place) frames it better", scene.middle.X, scene.middle.Y, bestK * 100)
+        end
     end
     if keep then shotTurn, shotRise = bestOff, bestRise end
     return best
